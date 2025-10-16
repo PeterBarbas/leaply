@@ -1,7 +1,7 @@
-import type { NextConfig } from "next";
+/** @type {import('next').NextConfig} */
 
-const nextConfig: NextConfig = {
-  /* config options here */
+const nextConfig = {
+  turbopack: { root: __dirname }, // silence the warning & load the right env files
+  devIndicators: false,
 };
-
-export default nextConfig;
+module.exports = nextConfig;
