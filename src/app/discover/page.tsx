@@ -8,10 +8,7 @@ export default async function DiscoverPage () {
       <header className='sticky top-0 z-50 w-full border-b border-border/40 bg-background/80 backdrop-blur-md'>
         <div className='mx-auto flex w-full max-w-7xl items-center justify-between px-6 py-5'>
           <Link href='/' className='flex items-center gap-2'>
-            <span className='inline-flex h-8 w-8 items-center justify-center rounded-xl bg-foreground text-background font-semibold'>
-              L
-            </span>
-            <span className='text-sm font-semibold tracking-tight text-foreground/90'>
+            <span className='text-lg font-semibold tracking-tight text-foreground/90'>
               Leaply
             </span>
           </Link>

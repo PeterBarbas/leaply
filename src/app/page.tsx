@@ -21,10 +21,7 @@ export default function Home () {
       <header className='sticky top-0 z-50 w-full border-b border-border/40 bg-background/80 backdrop-blur-md'>
         <div className='mx-auto flex w-full max-w-7xl items-center justify-between px-6 py-5'>
           <Link href='/' className='flex items-center gap-2'>
-            <span className='inline-flex h-8 w-8 items-center justify-center rounded-xl bg-foreground text-background font-semibold'>
-              L
-            </span>
-            <span className='text-sm font-semibold tracking-tight text-foreground/90'>
+            <span className='text-lg font-semibold tracking-tight text-foreground/90'>
               Leaply
             </span>
           </Link>
@@ -48,7 +45,7 @@ export default function Home () {
 
       {/* hero */}
       <section className='flex relative z-10 justify-center'>
-        <div className='mx-auto max-w-6xl h-full w-full px-6 py-24 text-center'>
+        <div className='mx-auto max-w-6xl h-full w-full px-6 py-10 text-center'>
           {/* glass card */}
           <motion.div
             initial={{ opacity: 0, y: 18 }}
@@ -110,7 +107,7 @@ export default function Home () {
                   size='lg'
                   className='px-7 text-base font-medium border-foreground/15 hover:bg-foreground/5'
                 >
-                  <Link href='/simulate'>Browse all simulations</Link>
+                  <Link href='/simulate'>Browse all roles</Link>
                 </Button>
               </motion.div>
 

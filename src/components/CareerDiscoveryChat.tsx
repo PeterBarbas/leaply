@@ -196,8 +196,9 @@ export default function CareerDiscoveryChat({ hideSkip = false }: { hideSkip?: b
       </div>
 
       {/* chat scroll area */}
-      <div className='flex-1 overflow-y-auto rounded-2xl border bg-card/70 backdrop-blur-sm py-4 px-1 sm:px-2 space-y-3'>
+      <div className='flex-1 overflow-y-auto rounded-2xl border bg-card/70 backdrop-blur-sm py-4 px-2 sm:px-2 space-y-3'>
         {messages.map((m, i) => {
+          
           const tail = showAvatarFor(i)
           return (
             <div
@@ -218,11 +219,12 @@ export default function CareerDiscoveryChat({ hideSkip = false }: { hideSkip?: b
               >
                 {m.text}
               </div>
-
+              
               {/* Right avatar only for tail of user run */}
               {m.from === 'you' && tail.you ? <Avatar kind='you' /> : <div className='w-7' />}
             </div>
           )
+
         })}
 
         {/* Initial typing dots (boot) — no avatar here to avoid duplicates */}

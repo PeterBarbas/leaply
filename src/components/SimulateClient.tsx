@@ -54,10 +54,7 @@ export default function SimulateClient ({ sims }: { sims: SimRow[] }) {
       <header className='sticky top-0 z-50 w-full border-b border-border/40 bg-background/80 backdrop-blur-md'>
         <div className='mx-auto flex w-full max-w-7xl items-center justify-between px-6 py-5'>
           <Link href='/' className='flex items-center gap-2'>
-            <span className='inline-flex h-8 w-8 items-center justify-center rounded-xl bg-foreground text-background font-semibold'>
-              L
-            </span>
-            <span className='text-sm font-semibold tracking-tight text-foreground/90'>
+            <span className='text-lg font-semibold tracking-tight text-foreground/90'>
               Leaply
             </span>
           </Link>
@@ -85,7 +82,7 @@ export default function SimulateClient ({ sims }: { sims: SimRow[] }) {
           initial={{ opacity: 0, y: 14 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5 }}
-          className='rounded-3xl border border-white/40 bg-white/60 p-6 text-center shadow-[0_8px_40px_-20px_rgba(0,0,0,0.25)] backdrop-blur-md dark:border-white/10 dark:bg-white/5'
+          className='rounded-3xl border border-white/40 bg-white/60 p-6 text-center shadow-[0_0_40px_-20px_rgba(0,0,0,0.25)] backdrop-blur-md dark:border-white/10 dark:bg-white/5'
         >
           <motion.h1
             initial={{ opacity: 0, y: 8 }}
@@ -215,7 +212,7 @@ export default function SimulateClient ({ sims }: { sims: SimRow[] }) {
               animate={{ opacity: 1, y: 0, scale: 1 }}
               exit={{ opacity: 0, y: 12, scale: 0.98 }}
               transition={{ duration: 0.2 }}
-              className='fixed bottom-6 right-6 z-[70] w-[92vw] max-w-[380px] overflow-hidden rounded-2xl border border-foreground/10 bg-background/95 shadow-2xl backdrop-blur-sm'
+              className='fixed bottom-6 right-6 z-[70] w-[92vw] max-w-[480px] overflow-hidden rounded-2xl border border-foreground/10 bg-background/95 shadow-2xl backdrop-blur-sm'
               role='dialog'
               aria-label='Career discovery chat'
             >
