@@ -1,348 +1,411 @@
-'use client'
+// src/components/CareerDiscoveryChat.tsx
+'use client';
 
-import { useEffect, useRef, useState } from 'react'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { useSearchParams } from 'next/navigation';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Send } from 'lucide-react';
 
-type Msg = { from: 'bot' | 'you'; text: string }
-type QA = { q: string; a: string }
+type Msg = { from: 'bot' | 'you'; text: string };
+type QA = { q: string; a: string };
 type CurrentQ =
   | { text: string; ui: 'mcq'; options: string[] }
   | { text: string; ui: 'text'; placeholder?: string }
-  | null
+  | null;
 
-// Local-first intro question (always MCQ)
-const FIRST_Q = 'Which best describes you right now?'
+const FIRST_Q = 'Which best describes you right now?';
 const FIRST_OPTIONS = [
   'I’m in secondary school deciding what to study',
   'I’m mid-career and exploring a change',
-  'Other'
-]
+  'Other',
+];
 
 function Avatar({ kind }: { kind: 'bot' | 'you' }) {
-  const isBot = kind === 'bot'
+  const isBot = kind === 'bot';
   return (
     <div
-      className={`flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full border shadow-sm
-        ${isBot ? 'bg-zinc-100 text-zinc-700' : 'bg-primary text-primary-foreground'}
-      `}
+      className={`flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full border shadow-sm ${
+        isBot ? 'bg-zinc-100 text-zinc-700' : 'bg-primary text-primary-foreground'
+      }`}
       aria-hidden
     >
       {isBot ? '🤖' : '🤔'}
     </div>
-  )
+  );
 }
 
-export default function CareerDiscoveryChat({ hideSkip = false }: { hideSkip?: boolean }) {
-  const [qas, setQas] = useState<QA[]>([])
-  const [messages, setMessages] = useState<Msg[]>([])
-  const [currentQ, setCurrentQ] = useState<CurrentQ>(null)
-  const [input, setInput] = useState('')
-  const [pending, setPending] = useState(false)      // API typing
-  const [bootTyping, setBootTyping] = useState(true) // initial typing animation
+export default function CareerDiscoveryChat({
+  hideSkip = false,
+  fixedHeight = false,
+  embed = false,
+}: {
+  hideSkip?: boolean;
+  fixedHeight?: boolean;
+  embed?: boolean;
+}) {
+  const search = useSearchParams();
+  const pref = search.get('pref');
+
+  const [qas, setQas] = useState<QA[]>([]);
+  const [messages, setMessages] = useState<Msg[]>([]);
+  const [currentQ, setCurrentQ] = useState<CurrentQ>(null);
+  const [input, setInput] = useState('');
+  const [pending, setPending] = useState(false);
+  const [bootTyping, setBootTyping] = useState(true);
   const [result, setResult] = useState<
     | null
     | {
-        status: 'supported' | 'unsupported'
-        role?: string
-        slug?: string
-        message: string
-        created?: boolean
+        status: 'supported' | 'unsupported';
+        role?: string;
+        slug?: string;
+        message: string;
+        created?: boolean;
       }
-  >(null)
+  >(null);
 
-  const endRef = useRef<HTMLDivElement | null>(null)
+  // Now the SCROLL is only on the messages area (not around the composer)
+  const scrollRef = useRef<HTMLDivElement | null>(null);
+
   useEffect(() => {
-    endRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }, [messages, pending, bootTyping, currentQ])
+    const el = scrollRef.current;
+    if (!el) return;
+    requestAnimationFrame(() => {
+      const nearBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 100;
+      if (nearBottom) el.scrollTo({ top: el.scrollHeight, behavior: 'smooth' });
+    });
+  }, [messages, pending, bootTyping, currentQ]);
 
-  // Auto-start with a typing delay: intro message, then after 2s the first MCQ question
   useEffect(() => {
     setMessages([
       {
         from: 'bot',
         text:
-          'Hey! 👋 I’ll help you find a career simulation that fits you best. I’ll ask a few short questions — let’s begin!'
-      }
-    ])
-    setBootTyping(true)
-
+          'Hey! 👋 I’ll help you find a career simulation that fits you best. I’ll ask a few short questions — let’s begin!',
+      },
+    ]);
+    setBootTyping(true);
     const t = setTimeout(() => {
-      setCurrentQ({ text: FIRST_Q, ui: 'mcq', options: FIRST_OPTIONS })
-      setMessages(m => [...m, { from: 'bot', text: FIRST_Q }])
-      setBootTyping(false)
-    }, 2000)
+      setCurrentQ({ text: FIRST_Q, ui: 'mcq', options: FIRST_OPTIONS });
+      setMessages((m) => [...m, { from: 'bot', text: FIRST_Q }]);
+      setBootTyping(false);
+    }, 1200);
+    return () => clearTimeout(t);
+  }, []);
 
-    return () => clearTimeout(t)
-  }, [])
+  const prefLabel = useMemo(() => {
+    if (pref === 'student') return 'I’m in secondary school deciding what to study';
+    if (pref === 'midcareer') return 'I’m mid-career and exploring a change';
+    if (pref === 'other') return 'Other';
+    return null;
+  }, [pref]);
+
+  useEffect(() => {
+    if (!prefLabel || qas.length > 0) return;
+    const t = setTimeout(async () => {
+      setMessages((m) => [...m, { from: 'you', text: prefLabel }]);
+      const firstQas = [{ q: FIRST_Q, a: prefLabel }];
+      setQas(firstQas);
+      setCurrentQ(null);
+      await requestNext(firstQas);
+    }, 1400);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [prefLabel, qas.length]);
 
   function addBot(text: string) {
-    setMessages(m => [...m, { from: 'bot', text }])
+    setMessages((m) => [...m, { from: 'bot', text }]);
   }
   function addYou(text: string) {
-    setMessages(m => [...m, { from: 'you', text }])
+    setMessages((m) => [...m, { from: 'you', text }]);
   }
 
   async function requestNext(qasArg: QA[]) {
-    setPending(true)
+    setPending(true);
     try {
       const res = await fetch('/api/discover/next', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ qas: qasArg, allowCreate: true })
-      })
-      const data = await res.json()
+        body: JSON.stringify({ qas: qasArg, allowCreate: true }),
+      });
+      const data = await res.json();
       if (!res.ok) {
-        const msg =
-          (data && (data.error || data.message)) ||
-          'Service is busy. Please try again.'
-        setCurrentQ(null)
-        addBot(`Heads up: ${msg} You can also tap “Skip and view all roles.”`)
-        return
+        const msg = (data && (data.error || data.message)) || 'Service is busy. Please try again.';
+        setCurrentQ(null);
+        addBot(`Heads up: ${msg} You can also tap “Skip and view all roles.”`);
+        return;
       }
       if (data?.type === 'question' && data.question) {
         if (data.ui === 'mcq' && Array.isArray(data.options)) {
-          setCurrentQ({ text: data.question, ui: 'mcq', options: data.options })
+          setCurrentQ({ text: data.question, ui: 'mcq', options: data.options });
         } else {
-          setCurrentQ({
-            text: data.question,
-            ui: 'text',
-            placeholder: data.placeholder
-          })
+          setCurrentQ({ text: data.question, ui: 'text', placeholder: data.placeholder });
         }
-        addBot(data.question)
+        addBot(data.question);
       } else if (data?.type === 'result') {
         setResult({
           status: data.status,
           role: data.role,
           slug: data.slug,
           message: data.message,
-          created: data.created
-        })
-        setCurrentQ(null)
-        addBot(data.message)
+          created: data.created,
+        });
+        setCurrentQ(null);
+        addBot(data.message);
       } else {
-        setCurrentQ(null)
-        addBot('I’m not sure—try rephrasing, or view all roles.')
+        setCurrentQ(null);
+        addBot('I’m not sure—try rephrasing, or view all roles.');
       }
     } catch {
-      setCurrentQ(null)
-      addBot(
-        'I didn’t understand that. Please try one more time or tap “Skip and view all roles.”'
-      )
+      setCurrentQ(null);
+      addBot('I didn’t understand that. Please try one more time or tap “Skip and view all roles.”');
     } finally {
-      setPending(false)
+      setPending(false);
     }
   }
 
   async function submit() {
-    if (!currentQ || currentQ.ui !== 'text') return
-    const a = input.trim()
-    if (!a) return
-    addYou(a)
-    const qasNext = [...qas, { q: currentQ.text, a }]
-    setQas(qasNext)
-    setInput('')
-    setCurrentQ(null)
-    await requestNext(qasNext)
+    if (!currentQ || currentQ.ui !== 'text') return;
+    const a = input.trim();
+    if (!a) return;
+    addYou(a);
+    const qasNext = [...qas, { q: currentQ.text, a }];
+    setQas(qasNext);
+    setInput('');
+    setCurrentQ(null);
+    await requestNext(qasNext);
   }
 
   async function choose(option: string) {
-    if (!currentQ || currentQ.ui !== 'mcq') return
-    addYou(option)
-
-    // First MCQ answer → send to server
+    if (!currentQ || currentQ.ui !== 'mcq') return;
+    addYou(option);
     if (qas.length === 0 && currentQ.text === FIRST_Q) {
-      const firstQas = [{ q: FIRST_Q, a: option }]
-      setQas(firstQas)
-      setCurrentQ(null)
-      await requestNext(firstQas)
-      return
+      const firstQas = [{ q: FIRST_Q, a: option }];
+      setQas(firstQas);
+      setCurrentQ(null);
+      await requestNext(firstQas);
+      return;
     }
-
-    // Generic MCQ flow for later questions
-    const qasNext = [...qas, { q: currentQ.text, a: option }]
-    setQas(qasNext)
-    setCurrentQ(null)
-    await requestNext(qasNext)
+    const qasNext = [...qas, { q: currentQ.text, a: option }];
+    setQas(qasNext);
+    setCurrentQ(null);
+    await requestNext(qasNext);
   }
 
-  // --- Avatar tail logic: show avatar only on the last bubble of each speaker run
   function showAvatarFor(index: number): { bot: boolean; you: boolean } {
-    const msg = messages[index]
-    const next = messages[index + 1]
-    const isTail = !next || next.from !== msg.from
-    return {
-      bot: msg.from === 'bot' && isTail,
-      you: msg.from === 'you' && isTail
-    }
+    const msg = messages[index];
+    const next = messages[index + 1];
+    const isTail = !next || next.from !== msg.from;
+    return { bot: msg.from === 'bot' && isTail, you: msg.from === 'you' && isTail };
   }
+
+  // WRAPPER: full-height column so the composer is *always* at the bottom
+  const wrapperClass = [
+    'mx-auto w-full max-w-2xl',
+    'h-full',
+    'flex flex-col',
+    embed ? 'min-h-0' : '',
+  ].join(' ');
+
+  // CARD / FRAME
+  const frameClass = [
+    'flex-1 min-h-0',
+    'rounded-2xl border bg-card/70 backdrop-blur-sm',
+    'flex flex-col', // column: messages (scroll) + composer (bottom)
+  ].join(' ');
+
+  // MESSAGES SCROLL AREA
+  const messagesClass = [
+    'flex-1 min-h-0',
+    'overflow-y-auto',
+    'px-3 sm:px-3',
+    embed ? 'py-2' : 'py-3',
+    'space-y-3',
+  ].join(' ');
+
+  // For dedicated page with fixed height, clamp the frame
+  const frameStyle: React.CSSProperties | undefined = fixedHeight
+    ? { height: 'calc(100dvh - 340px)' }
+    : undefined;
 
   return (
-    <div className='mx-auto w-full max-w-2xl h-[70vh] flex flex-col'>
-      
-      {/* header */}
-      <div className='mb-1 mr-2'>
-        <div className='flex items-end justify-end text-xs text-muted-foreground'>
-          {!hideSkip && (
-            <a
-              href='/simulate'
-              className='hover:text-foreground'
+    <div className={wrapperClass}>
+      {/* hide the top utility link in embed/panel */}
+      {!embed && (
+        <div className="mb-1 mr-2">
+          <div className="flex items-end justify-end text-xs text-muted-foreground">
+            {!hideSkip && (
+              <a href="/simulate" className="hover:text-foreground">
+                Skip and view all roles
+              </a>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Frame holds: messages (scroll) + composer (fixed at bottom) */}
+      <div className={frameClass} style={frameStyle}>
+        {/* Messages */}
+        <div ref={scrollRef} className={messagesClass}>
+          {messages.map((m, i) => {
+            const tail = showAvatarFor(i);
+            return (
+              <div
+                key={i}
+                className={`flex items-end gap-2 ${
+                  m.from === 'you' ? 'justify-end' : 'justify-start'
+                }`}
+              >
+                {m.from === 'bot' && tail.bot ? <Avatar kind="bot" /> : <div className="w-7" />}
+                <div
+                  className={`max-w-[80%] rounded-2xl px-4 py-2 text-sm break-words ${
+                    m.from === 'you'
+                      ? 'bg-primary text-primary-foreground rounded-br-sm'
+                      : 'bg-muted text-foreground rounded-bl-sm'
+                  }`}
+                >
+                  {m.text}
+                </div>
+                {m.from === 'you' && tail.you ? <Avatar kind="you" /> : <div className="w-7" />}
+              </div>
+            );
+          })}
+
+          {/* Initial typing dots */}
+          {bootTyping && (
+            <div className="flex items-start gap-2 justify-start">
+              <div className="w-7" />
+              <div className="rounded-2xl rounded-bl-sm bg-muted px-4 py-2 text-sm text-foreground">
+                <span className="inline-flex gap-1">
+                  <span className="inline-block h-2 w-2 animate-bounce rounded-full bg-foreground/60 [animation-delay:-0.2s]" />
+                  <span className="inline-block h-2 w-2 animate-bounce rounded-full bg-foreground/60" />
+                  <span className="inline-block h-2 w-2 animate-bounce rounded-full bg-foreground/60 [animation-delay:0.2s]" />
+                </span>
+              </div>
+            </div>
+          )}
+
+          {/* MCQ options */}
+          {currentQ && currentQ.ui === 'mcq' && (
+            <div className="flex items-start gap-2 justify-start">
+              <div className="w-7" />
+              <div className="max-w-[80%]">
+                <div className="mt-1 flex flex-wrap gap-2">
+                  {currentQ.options.map((opt) => {
+                    const isFirst = currentQ.text.trim() === FIRST_Q;
+                    return (
+                      <Button
+                        key={opt}
+                        size="sm"
+                        className={
+                          isFirst
+                            ? 'bg-primary text-primary-foreground hover:bg-primary/90 font-medium shadow-sm'
+                            : 'bg-muted text-foreground hover:bg-muted/80'
+                        }
+                        onClick={() => choose(opt)}
+                        disabled={pending}
+                      >
+                        {opt}
+                      </Button>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* API typing dots */}
+          {pending && (
+            <div className="flex items-start gap-2 justify-start">
+              <div className="w-7" />
+              <div className="rounded-2xl rounded-bl-sm bg-muted px-4 py-2 text-sm text-foreground">
+                <span className="inline-flex gap-1">
+                  <span className="inline-block h-2 w-2 animate-bounce rounded-full bg-foreground/60 [animation-delay:-0.2s]" />
+                  <span className="inline-block h-2 w-2 animate-bounce rounded-full bg-foreground/60" />
+                  <span className="inline-block h-2 w-2 animate-bounce rounded-full bg-foreground/60 [animation-delay:0.2s]" />
+                </span>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Composer (always at bottom of the frame) */}
+        <div className="px-2 sm:px-2 pt-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] rounded-b-2xl border-t border-foreground/10 bg-background/70 backdrop-blur">
+          {result ? (
+            <div className="flex flex-wrap items-center gap-3">
+              {result.status === 'supported' && result.slug ? (
+                <>
+                  <Button asChild className="px-6">
+                    <a href={`/s/${result.slug}`}>Try the {result.role} simulation</a>
+                  </Button>
+                  {!hideSkip && !embed && (
+                    <a
+                      className="text-sm text-muted-foreground underline underline-offset-4"
+                      href="/simulate"
+                    >
+                      Or view all roles
+                    </a>
+                  )}
+                </>
+              ) : (
+                <>
+                  <Button asChild className="px-6">
+                    <a href="/simulate">Explore corporate roles</a>
+                  </Button>
+                  <span className="text-sm text-muted-foreground">We’ll expand to more paths soon 🚀</span>
+                </>
+              )}
+            </div>
+          ) : (
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                if (!pending && currentQ && currentQ.ui === 'text' && input.trim()) submit();
+              }}
+              className="relative"
             >
-              Skip and view all roles
-            </a>
+              <Input
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+                placeholder={
+                  currentQ && currentQ.ui === 'text'
+                    ? currentQ.placeholder || 'Type your answer…'
+                    : 'Waiting for question…'
+                }
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    if (!pending && currentQ && currentQ.ui === 'text' && input.trim()) submit();
+                  }
+                }}
+                disabled={!currentQ || currentQ.ui !== 'text' || pending}
+                className={[
+                  'h-12 w-full rounded-full pr-12 pl-4',
+                  'bg-muted/60 border border-foreground/10',
+                  'focus-visible:ring-0 focus-visible:ring-primary focus-visible:border-foreground/10',
+                  'placeholder:text-muted-foreground/60',
+                ].join(' ')}
+              />
+
+              <button
+                type="submit"
+                disabled={!currentQ || currentQ.ui !== 'text' || !input.trim() || pending}
+                className={[
+                  'absolute right-1.5 top-1/2 -translate-y-1/2',
+                  'inline-flex h-9 w-9 items-center justify-center rounded-full',
+                  (!currentQ || currentQ.ui !== 'text' || !input.trim() || pending)
+                    ? 'bg-foreground/10 text-muted-foreground cursor-not-allowed'
+                    : 'bg-primary text-primary-foreground hover:bg-primary/90 shadow-sm',
+                  'transition-colors',
+                ].join(' ')}
+                aria-label="Send"
+              >
+                <Send className="h-4 w-4" />
+              </button>
+            </form>
           )}
         </div>
       </div>
-
-      {/* chat scroll area */}
-      <div className='flex-1 overflow-y-auto rounded-2xl border bg-card/70 backdrop-blur-sm py-4 px-2 sm:px-2 space-y-3'>
-        {messages.map((m, i) => {
-          
-          const tail = showAvatarFor(i)
-          return (
-            <div
-              key={i}
-              className={`flex items-end gap-2 ${
-                m.from === 'you' ? 'justify-end' : 'justify-start'
-              }`}
-            >
-              {/* Left avatar only for tail of bot run */}
-              {m.from === 'bot' && tail.bot ? <Avatar kind='bot' /> : <div className='w-7' />}
-
-              <div
-                className={`max-w-[80%] rounded-2xl px-4 py-2 text-sm break-words ${
-                  m.from === 'you'
-                    ? 'bg-primary text-primary-foreground rounded-br-sm'
-                    : 'bg-muted text-foreground rounded-bl-sm'
-                }`}
-              >
-                {m.text}
-              </div>
-              
-              {/* Right avatar only for tail of user run */}
-              {m.from === 'you' && tail.you ? <Avatar kind='you' /> : <div className='w-7' />}
-            </div>
-          )
-
-        })}
-
-        {/* Initial typing dots (boot) — no avatar here to avoid duplicates */}
-        {bootTyping && (
-          <div className='flex items-start gap-2 justify-start'>
-            <div className='w-7' />
-            <div className='rounded-2xl rounded-bl-sm bg-muted px-4 py-2 text-sm text-foreground'>
-              <span className='inline-flex gap-1'>
-                <span className='inline-block h-2 w-2 animate-bounce rounded-full bg-foreground/60 [animation-delay:-0.2s]' />
-                <span className='inline-block h-2 w-2 animate-bounce rounded-full bg-foreground/60' />
-                <span className='inline-block h-2 w-2 animate-bounce rounded-full bg-foreground/60 [animation-delay:0.2s]' />
-              </span>
-            </div>
-          </div>
-        )}
-
-        {/* MCQ buttons under the bot bubble — no avatar (the tail bubble has it) */}
-        {currentQ && currentQ.ui === 'mcq' && (
-          <div className='flex items-start gap-2 justify-start'>
-            <div className='w-7' />
-            <div className='max-w-[80%]'>
-              <div className='mt-1 flex flex-wrap gap-2'>
-                {currentQ.options.map(opt => {
-                  const isFirstQuestion =
-                    currentQ.text.trim() === 'Which best describes you right now?'
-                  return (
-                    <Button
-                      key={opt}
-                      size='sm'
-                      className={
-                        isFirstQuestion
-                          ? 'bg-primary text-primary-foreground hover:bg-primary/90 font-medium shadow-sm'
-                          : 'bg-muted text-foreground hover:bg-muted/80'
-                      }
-                      onClick={() => choose(opt)}
-                      disabled={pending}
-                    >
-                      {opt}
-                    </Button>
-                  )
-                })}
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* API typing dots — no avatar to avoid double tails */}
-        {pending && (
-          <div className='flex items-start gap-2 justify-start'>
-            <div className='w-7' />
-            <div className='rounded-2xl rounded-bl-sm bg-muted px-4 py-2 text-sm text-foreground'>
-              <span className='inline-flex gap-1'>
-                <span className='inline-block h-2 w-2 animate-bounce rounded-full bg-foreground/60 [animation-delay:-0.2s]' />
-                <span className='inline-block h-2 w-2 animate-bounce rounded-full bg-foreground/60' />
-                <span className='inline-block h-2 w-2 animate-bounce rounded-full bg-foreground/60 [animation-delay:0.2s]' />
-              </span>
-            </div>
-          </div>
-        )}
-
-        <div ref={endRef} />
-      </div>
-
-      {/* bottom input area */}
-      <div className='pt-3'>
-        {result ? (
-          <div className='flex flex-wrap items-center gap-3'>
-            {result.status === 'supported' && result.slug ? (
-              <>
-                <Button asChild className='px-6'>
-                  <a href={`/s/${result.slug}`}>Try the {result.role} simulation</a>
-                </Button>
-                {!hideSkip && (
-                  <a
-                    className='text-sm text-muted-foreground underline underline-offset-4'
-                    href='/simulate'
-                  >
-                    Or view all roles
-                  </a>
-                )}
-              </>
-            ) : (
-              <>
-                <Button asChild className='px-6'>
-                  <a href='/simulate'>Explore corporate roles</a>
-                </Button>
-                <span className='text-sm text-muted-foreground'>
-                  We’ll expand to more paths soon 🚀
-                </span>
-              </>
-            )}
-          </div>
-        ) : (
-          <div className='flex items-center gap-2'>
-            <Input
-              value={input}
-              onChange={e => setInput(e.target.value)}
-              placeholder={
-                currentQ && currentQ.ui === 'text'
-                  ? currentQ.placeholder || 'Type your answer…'
-                  : 'Waiting for question…'
-              }
-              onKeyDown={e => {
-                if (e.key === 'Enter') submit()
-              }}
-              disabled={!currentQ || currentQ.ui !== 'text' || pending}
-            />
-            <Button
-              onClick={submit}
-              disabled={
-                !currentQ || currentQ.ui !== 'text' || !input.trim() || pending
-              }
-            >
-              Send
-            </Button>
-          </div>
-        )}
-      </div>
     </div>
-  )
+  );
 }
