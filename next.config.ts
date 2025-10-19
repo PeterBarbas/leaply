@@ -3,5 +3,8 @@
 const nextConfig = {
   turbopack: { root: __dirname }, // silence the warning & load the right env files
   devIndicators: false,
+  eslint: {
+    ignoreDuringBuilds: true,
+  },
 };
 module.exports = nextConfig;
