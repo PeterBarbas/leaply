@@ -1,18 +1,20 @@
 import CareerDiscoveryChat from '@/components/CareerDiscoveryChat'
-import { Button } from '@/components/ui/button'
-import {
-  Linkedin,
-  Twitter,
-  Instagram,
-  Github,
-  MessageCircle,
-} from 'lucide-react'
-import Link from 'next/link'
 
-export default async function DiscoverPage() {
+type Pref = 'student' | 'midcareer' | 'other'
+
+export default function DiscoverPage({
+  searchParams,
+}: {
+  searchParams: { pref?: Pref }
+}) {
+  // Safely coerce/validate the query param
+  const allowed: Pref[] = ['student', 'midcareer', 'other']
+  const pref: Pref | null = allowed.includes(searchParams?.pref as Pref)
+    ? (searchParams.pref as Pref)
+    : null
+
   return (
     <main className="min-h-screen flex flex-col bg-white">
-
       {/* main content (flex-1 so it can shrink) */}
       <div className="flex-1 min-h-0">
         <div className="mx-auto max-w-3xl px-6 py-12 h-full flex flex-col">
@@ -25,7 +27,8 @@ export default async function DiscoverPage() {
 
           {/* fixed-height chat area (adjust calc values if needed) */}
           <div className="mt-8 h-[calc(100dvh-240px)] min-h-[420px]">
-            <CareerDiscoveryChat fixedHeight/>
+            {/* ✅ Pass the initialPref from the server, no useSearchParams on client */}
+            <CareerDiscoveryChat fixedHeight initialPref={pref} />
           </div>
         </div>
       </div>

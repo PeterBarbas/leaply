@@ -1,8 +1,6 @@
-// src/components/CareerDiscoveryChat.tsx
 'use client';
 
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { useSearchParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Send } from 'lucide-react';
@@ -13,6 +11,8 @@ type CurrentQ =
   | { text: string; ui: 'mcq'; options: string[] }
   | { text: string; ui: 'text'; placeholder?: string }
   | null;
+
+type Pref = 'student' | 'midcareer' | 'other' | null;
 
 const FIRST_Q = 'Which best describes you right now?';
 const FIRST_OPTIONS = [
@@ -39,14 +39,13 @@ export default function CareerDiscoveryChat({
   hideSkip = false,
   fixedHeight = false,
   embed = false,
+  initialPref = null,
 }: {
   hideSkip?: boolean;
   fixedHeight?: boolean;
   embed?: boolean;
+  initialPref?: Pref;
 }) {
-  const search = useSearchParams();
-  const pref = search.get('pref');
-
   const [qas, setQas] = useState<QA[]>([]);
   const [messages, setMessages] = useState<Msg[]>([]);
   const [currentQ, setCurrentQ] = useState<CurrentQ>(null);
@@ -93,12 +92,13 @@ export default function CareerDiscoveryChat({
     return () => clearTimeout(t);
   }, []);
 
+  // ✅ Use the server-provided pref instead of useSearchParams
   const prefLabel = useMemo(() => {
-    if (pref === 'student') return 'I’m in secondary school deciding what to study';
-    if (pref === 'midcareer') return 'I’m mid-career and exploring a change';
-    if (pref === 'other') return 'Other';
+    if (initialPref === 'student') return 'I’m in secondary school deciding what to study';
+    if (initialPref === 'midcareer') return 'I’m mid-career and exploring a change';
+    if (initialPref === 'other') return 'Other';
     return null;
-  }, [pref]);
+  }, [initialPref]);
 
   useEffect(() => {
     if (!prefLabel || qas.length > 0) return;
