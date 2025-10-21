@@ -71,55 +71,70 @@ export default function Home() {
                 Make decisions, solve challenges, and feel what the job is actually like — all in under 10 minutes.
               </motion.p>
 
-              {/* Starter chat inline */}
-              <motion.div
-                initial={{ opacity: 0, y: 8 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.3, duration: 0.6 }}
-                className="mx-auto mt-7 w-full max-w-xl text-left"
-              >
-                <div className="rounded-2xl border border-foreground/10 bg-background/70 p-4 backdrop-blur-sm">
-                  <div className="mb-2 flex items-start gap-2">
-                    <div className="flex h-7 w-7 items-center justify-center rounded-full bg-muted text-background text-xs font-semibold">
-                      🤖
-                    </div>
-                    <div className="rounded-2xl rounded-bl-sm bg-muted px-4 py-2 text-sm text-foreground">
-                      Hey! 👋 I’ll ask a few quick questions to find a great role for you.
-                    </div>
-                  </div>
+{/* Starter chat inline */}
+<motion.div
+  initial={{ opacity: 0, y: 8 }}
+  animate={{ opacity: 1, y: 0 }}
+  transition={{ delay: 0.3, duration: 0.6 }}
+  className="mx-auto mt-7 w-full max-w-xl text-left"
+>
+  <div className="rounded-2xl border border-foreground/10 bg-background/70 p-4 backdrop-blur-sm">
+    {/* 2-col grid: avatar + content */}
+    <div className="grid grid-cols-[28px_1fr] gap-x-2">
+      {/* Bot avatar */}
+      <div className="col-start-1 row-start-1">
+        <div className="flex h-7 w-7 items-center justify-center rounded-full bg-muted text-background text-xs font-semibold">
+          🤖
+        </div>
+      </div>
 
-                  <div className="mb-2 ml-8 rounded-2xl rounded-bl-sm bg-muted px-4 py-2 text-sm font-medium">
-                    {FIRST_Q}
-                  </div>
+      {/* Bot message bubble (auto width) */}
+      <div className="col-start-2 row-start-1">
+        <div className="inline-block max-w-[80%] sm:max-w-[42rem] rounded-2xl rounded-bl-sm bg-muted px-4 py-2 text-sm text-foreground align-top">
+          Hey! 👋 I’ll ask a few quick questions to find a great role for you.
+        </div>
+      </div>
 
-{/* OPTIONS — align & size exactly like message bubbles */}
-<div className="ml-9 max-w-[80%] min-w-0">
-  <div className="flex flex-col sm:flex-row sm:flex-wrap gap-2">
-    {OPTIONS.map((opt) => (
-      <Button
-        key={opt.pref}
-        onClick={() => handleChoose(opt.pref)}
-        className={[
-          'w-full sm:w-auto min-w-0 max-w-full',
-          '!h-auto py-2.5 px-4 whitespace-normal break-words text-left leading-[1.35] !items-start',
-          'rounded-md bg-primary text-primary-foreground hover:bg-primary/80 font-medium shadow-sm',
-        ].join(' ')}
-      >
-        {opt.label}
-      </Button>
-    ))}
+      {/* Question bubble (auto width, same rule) */}
+      <div className="col-start-2 mt-2">
+        <div className="inline-block max-w-[80%] sm:max-w-[42rem] rounded-2xl rounded-bl-sm bg-muted px-4 py-2 text-sm text-foreground align-top">
+          Which best describes you right now?
+        </div>
+      </div>
+
+      {/* Options — wrap; never stretch too wide on desktop */}
+      <div className="col-start-2 mt-2">
+        <div className="flex flex-col sm:flex-row sm:flex-wrap gap-2 items-start">
+          {OPTIONS.map((opt) => (
+            <Button
+              key={opt.pref}
+              onClick={() => handleChoose(opt.pref)}
+              className={[
+                // responsive width
+                'w-full sm:w-auto sm:max-w-[32rem] min-w-0 max-w-full',
+                // let height grow with lines + nice line-height
+                '!h-auto py-2.5 px-4 whitespace-normal break-words text-left leading-[1.35] !items-start',
+                // style
+                'rounded-md bg-primary text-primary-foreground hover:bg-primary/80 font-medium shadow-sm text-center',
+              ].join(' ')}
+            >
+              {opt.label}
+            </Button>
+          ))}
+        </div>
+      </div>
+
+      {/* Hint under options */}
+      <div className="col-start-2 mt-3">
+        <div className="text-xs text-muted-foreground">
+          Select an option to get started...
+        </div>
+      </div>
+    </div>
   </div>
-</div>
+</motion.div>
 
 
-
-
-                  {/* hint that the full assistant opens */}
-                  <div className="ml-9 mt-3 text-xs text-muted-foreground">
-                    Select an option to get started...
-                  </div>
-                </div>
-              </motion.div>
 
               <motion.p
                 initial={{ opacity: 0 }}

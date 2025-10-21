@@ -100,7 +100,7 @@ export default function SimulateClient ({ sims }: { sims: SimRow[] }) {
               <Input
                 value={q}
                 onChange={e => setQ(e.target.value)}
-                placeholder='Search roles (e.g., Marketing, Project Management)'
+                placeholder='Search roles (e.g., Marketing)'
                 className='h-11 pl-9'
               />
             </div>

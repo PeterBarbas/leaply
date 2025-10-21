@@ -56,9 +56,9 @@ export default function Header() {
             <img
               src="/logo.png"
               alt="Leaply Logo"
-              className="h-8 w-8 rounded-md object-cover transition-transform group-hover:scale-105"
+              className="h-8 w-8 rounded-md object-cover"
             />
-            <span className="text-lg font-bold tracking-tight text-foreground/90 group-hover:text-foreground transition-colors">
+            <span className="text-lg font-bold tracking-tight text-foreground">
               Leaply
             </span>
           </Link>
@@ -72,10 +72,10 @@ export default function Header() {
                   key={item.href}
                   href={item.href}
                   className={[
-                    'transition-colors',
+                    'transition-colors font-regular',
                     isActive
                       ? 'text-primary'
-                      : 'text-foreground/70 hover:text-foreground',
+                      : 'text-foreground/70',
                   ].join(' ')}
                 >
                   {item.label}

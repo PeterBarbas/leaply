@@ -11,22 +11,22 @@ export default function Footer() {
       <div className="mx-auto max-w-7xl px-6 py-12 grid grid-cols-1 gap-10 sm:grid-cols-2 lg:grid-cols-5">
         {/* Logo + About */}
         <div className="sm:col-span-2">
-          <div className="flex items-center gap-2 mb-4">
+          <Link href="/" className="flex items-center group gap-2 mb-4">
             <img
               src="/logo.png"
               alt="Leaply Logo"
               className="h-8 w-8 rounded-md object-cover"
             />
-            <span className="text-lg font-semibold tracking-tight text-foreground/90">Leaply</span>
-          </div>
+            <span className="text-lg font-bold tracking-tight text-foreground">Leaply</span>
+          </Link>
           <p className="text-sm text-muted-foreground leading-relaxed max-w-xs">
             Leaply helps you explore and test-drive real corporate careers through short AI-powered simulations.
           </p>
           <div className="flex gap-4 mt-5 text-muted-foreground">
-            <Link href="https://linkedin.com" className="hover:text-foreground transition">
+            <Link href="https://www.linkedin.com/company/meetleaply" target="_blank" className="hover:text-primary transition">
               <Linkedin className="h-5 w-5" />
             </Link>
-            <Link href="https://twitter.com" className="hover:text-foreground transition">
+            {/* <Link href="https://twitter.com" className="hover:text-foreground transition">
               <Twitter className="h-5 w-5" />
             </Link>
             <Link href="https://instagram.com" className="hover:text-foreground transition">
@@ -37,7 +37,7 @@ export default function Footer() {
             </Link>
             <Link href="mailto:hello@leaply.com" className="hover:text-foreground transition">
               <MessageCircle className="h-5 w-5" />
-            </Link>
+            </Link> */}
           </div>
         </div>
 

@@ -311,7 +311,7 @@ export default function CareerDiscoveryChat({
                 // shape + colors
                 'rounded-md font-medium shadow-sm',
                 isFirst
-                  ? 'bg-primary text-primary-foreground hover:bg-primary/90'
+                  ? 'bg-primary text-primary-foreground hover:bg-primary/90 text-center'
                   : 'bg-muted text-foreground hover:bg-muted/80',
               ].join(' ')}
             >
