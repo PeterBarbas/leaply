@@ -42,14 +42,14 @@ export default function Footer() {
         </div>
 
         {/* Columns */}
-        <div>
+        {/* <div>
           <h4 className="font-semibold text-foreground mb-3">Company</h4>
           <ul className="space-y-2 text-sm text-muted-foreground">
             <li>
               <Link href="/about" className="hover:text-foreground transition">About us</Link>
             </li>
           </ul>
-        </div>
+        </div> */}
 
         <div>
           <h4 className="font-semibold text-foreground mb-3">Product</h4>

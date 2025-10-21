@@ -65,6 +65,7 @@ export default function CareerDiscoveryChat({
 
   // Now the SCROLL is only on the messages area (not around the composer)
   const scrollRef = useRef<HTMLDivElement | null>(null);
+  const inputRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
     const el = scrollRef.current;
@@ -174,6 +175,8 @@ export default function CareerDiscoveryChat({
     setInput('');
     setCurrentQ(null);
     await requestNext(qasNext);
+    setTimeout(() => inputRef.current?.focus(), 50);
+
   }
 
   async function choose(option: string) {
@@ -286,33 +289,41 @@ export default function CareerDiscoveryChat({
           )}
 
           {/* MCQ options */}
-          {currentQ && currentQ.ui === 'mcq' && (
-            <div className="flex items-start gap-2 justify-start">
-              <div className="w-7" />
-              <div className="max-w-[80%]">
-                <div className="mt-1 flex flex-wrap gap-2">
-                  {currentQ.options.map((opt) => {
-                    const isFirst = currentQ.text.trim() === FIRST_Q;
-                    return (
-                      <Button
-                        key={opt}
-                        size="sm"
-                        className={
-                          isFirst
-                            ? 'bg-primary text-primary-foreground hover:bg-primary/90 font-medium shadow-sm'
-                            : 'bg-muted text-foreground hover:bg-muted/80'
-                        }
-                        onClick={() => choose(opt)}
-                        disabled={pending}
-                      >
-                        {opt}
-                      </Button>
-                    );
-                  })}
-                </div>
-              </div>
-            </div>
-          )}
+{/* MCQ options */}
+{currentQ && currentQ.ui === 'mcq' && (
+  <div className="flex items-start gap-2 justify-start">
+    <div className="w-7" />
+    <div className="max-w-[80%] min-w-0">
+      <div className="mt-1 flex flex-col sm:flex-row sm:flex-wrap gap-2">
+        {currentQ.options.map((opt) => {
+          const isFirst = currentQ.text.trim() === FIRST_Q
+          return (
+            <Button
+              key={opt}
+              // remove size="sm" to avoid enforced h-9 OR override it (see classes)
+              onClick={() => choose(opt)}
+              disabled={pending}
+              className={[
+                // responsive width
+                'w-full sm:w-auto min-w-0 max-w-full',
+                // allow multi-line labels
+                '!h-auto py-2.5 px-4 whitespace-normal break-words text-left leading-[1.35] !items-start',
+                // shape + colors
+                'rounded-md font-medium shadow-sm',
+                isFirst
+                  ? 'bg-primary text-primary-foreground hover:bg-primary/90'
+                  : 'bg-muted text-foreground hover:bg-muted/80',
+              ].join(' ')}
+            >
+              {opt}
+            </Button>
+          )
+        })}
+      </div>
+    </div>
+  </div>
+)}
+
 
           {/* API typing dots */}
           {pending && (
@@ -366,6 +377,7 @@ export default function CareerDiscoveryChat({
             >
               <Input
                 value={input}
+                ref={inputRef}
                 onChange={(e) => setInput(e.target.value)}
                 placeholder={
                   currentQ && currentQ.ui === 'text'

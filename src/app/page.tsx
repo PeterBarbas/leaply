@@ -5,13 +5,6 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { motion } from 'framer-motion';
-import {
-  Linkedin,
-  Twitter,
-  Instagram,
-  Github,
-  MessageCircle,
-} from 'lucide-react';
 
 const FIRST_Q = 'Which best describes you right now?';
 const OPTIONS: { label: string; pref: 'student' | 'midcareer' | 'other' }[] = [
@@ -35,7 +28,6 @@ export default function Home() {
         <div className="absolute inset-0 bg-[url('data:image/svg+xml;utf8,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%2240%22 height=%2240%22 viewBox=%220 0 40 40%22><path d=%22M0 39.5H40 M39.5 0V40%22 stroke=%22%238a8a8a22%22/></svg>')] [mask-image:radial-gradient(ellipse_at_center,black,transparent_70%)]" />
         <div className="absolute right-[-10%] bottom-[-10%] h-[55vh] w-[55vh] rotate-12 rounded-full bg-[conic-gradient(from_220deg,theme(colors.sky.400/.25),theme(colors.fuchsia.400/.25),transparent_55%)] blur-2xl" />
       </div>
-
 
       {/* hero */}
       <section className="flex relative z-10 justify-center bg-white">
@@ -65,7 +57,7 @@ export default function Home() {
               >
                 Your next career move,{' '}
                 <span className="bg-gradient-to-r from-indigo-500 via-fuchsia-500 to-sky-500 bg-clip-text text-transparent">
-                powered by experience{' '}
+                  powered by experience{' '}
                 </span>
                 not guesswork.
               </motion.h1>
@@ -89,7 +81,7 @@ export default function Home() {
                 <div className="rounded-2xl border border-foreground/10 bg-background/70 p-4 backdrop-blur-sm">
                   <div className="mb-2 flex items-start gap-2">
                     <div className="flex h-7 w-7 items-center justify-center rounded-full bg-muted text-background text-xs font-semibold">
-                    🤖
+                      🤖
                     </div>
                     <div className="rounded-2xl rounded-bl-sm bg-muted px-4 py-2 text-sm text-foreground">
                       Hey! 👋 I’ll ask a few quick questions to find a great role for you.
@@ -100,39 +92,33 @@ export default function Home() {
                     {FIRST_Q}
                   </div>
 
-                  <div className="ml-9 flex flex-wrap gap-2">
-                    {OPTIONS.map((opt) => (
-                      <Button
-                        key={opt.pref}
-                        size="sm"
-                        className="bg-primary text-primary-foreground hover:bg-primary/80 font-medium shadow-sm"
-                        onClick={() => handleChoose(opt.pref)}
-                      >
-                        {opt.label}
-                      </Button>
-                    ))}
-                  </div>
+{/* OPTIONS — align & size exactly like message bubbles */}
+<div className="ml-9 max-w-[80%] min-w-0">
+  <div className="flex flex-col sm:flex-row sm:flex-wrap gap-2">
+    {OPTIONS.map((opt) => (
+      <Button
+        key={opt.pref}
+        onClick={() => handleChoose(opt.pref)}
+        className={[
+          'w-full sm:w-auto min-w-0 max-w-full',
+          '!h-auto py-2.5 px-4 whitespace-normal break-words text-left leading-[1.35] !items-start',
+          'rounded-md bg-primary text-primary-foreground hover:bg-primary/80 font-medium shadow-sm',
+        ].join(' ')}
+      >
+        {opt.label}
+      </Button>
+    ))}
+  </div>
+</div>
+
+
+
 
                   {/* hint that the full assistant opens */}
                   <div className="ml-9 mt-3 text-xs text-muted-foreground">
                     Select an option to get started...
                   </div>
                 </div>
-
-                {/* Secondary CTAs under the chat */}
-                {/* <div className="mt-4 flex flex-col items-center justify-center gap-3 sm:flex-row">
-                  <Button asChild size="lg" className="px-7 text-base font-medium">
-                    <Link href="/discover">Find your next career</Link>
-                  </Button>
-                  <Button
-                    asChild
-                    variant="outline"
-                    size="lg"
-                    className="px-7 text-base font-medium border-foreground/15 hover:bg-foreground/5"
-                  >
-                    <Link href="/simulate">Browse all roles</Link>
-                  </Button>
-                </div> */}
               </motion.div>
 
               <motion.p
@@ -147,6 +133,7 @@ export default function Home() {
           </motion.div>
         </div>
       </section>
+
       <div className="pointer-events-none absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-black/5 to-transparent dark:from-black/30" />
     </main>
   );
