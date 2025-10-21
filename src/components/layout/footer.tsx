@@ -12,6 +12,11 @@ export default function Footer() {
         {/* Logo + About */}
         <div className="sm:col-span-2">
           <div className="flex items-center gap-2 mb-4">
+            <img
+              src="/logo.png"
+              alt="Leaply Logo"
+              className="h-8 w-8 rounded-md object-cover"
+            />
             <span className="text-lg font-semibold tracking-tight text-foreground/90">Leaply</span>
           </div>
           <p className="text-sm text-muted-foreground leading-relaxed max-w-xs">

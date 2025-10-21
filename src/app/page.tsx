@@ -54,9 +54,7 @@ export default function Home() {
                 transition={{ delay: 0.05, duration: 0.5 }}
                 className="inline-flex items-center gap-2 rounded-full border border-foreground/10 bg-background/60 px-3 py-1 text-xs text-foreground/70 dark:bg-background/40"
               >
-                <span>✨ New</span>
-                <span className="h-1 w-1 rounded-full bg-foreground/20" />
-                <span>Meet Leap - Your Career Discovery Assistant</span>
+                <span>Your Career Discovery Assistant</span>
               </motion.div>
 
               <motion.h1
@@ -98,7 +96,7 @@ export default function Home() {
                     </div>
                   </div>
 
-                  <div className="mb-2 ml-9 rounded-2xl rounded-bl-sm bg-muted px-4 py-2 text-sm font-medium">
+                  <div className="mb-2 ml-8 rounded-2xl rounded-bl-sm bg-muted px-4 py-2 text-sm font-medium">
                     {FIRST_Q}
                   </div>
 
@@ -107,7 +105,7 @@ export default function Home() {
                       <Button
                         key={opt.pref}
                         size="sm"
-                        className="bg-primary text-primary-foreground hover:bg-primary/90 font-medium shadow-sm"
+                        className="bg-primary text-primary-foreground hover:bg-primary/80 font-medium shadow-sm"
                         onClick={() => handleChoose(opt.pref)}
                       >
                         {opt.label}

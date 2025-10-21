@@ -19,15 +19,7 @@ export default function DiscoverPage({
       <div className="flex-1 min-h-0">
         <div className="mx-auto max-w-3xl px-6 py-12 h-full flex flex-col">
           <h1 className="text-3xl sm:text-4xl font-semibold tracking-tight text-center">
-                Find the{' '}
-                <span className="bg-gradient-to-r from-indigo-500 to-fuchsia-500 bg-clip-text text-transparent">
-                best{' '}
-                </span>
-                role{' '}
-                <span className="bg-gradient-to-r from-indigo-500 to-fuchsia-500 bg-clip-text text-transparent">
-                for you{' '}
-                </span>
-                🚀
+                Find the best role for you 🚀
               </h1>
           <p className="mt-3 text-center text-muted-foreground">
             Quick questions — then we’ll recommend a career path to try out.
