@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { motion } from "framer-motion";
-import { ArrowLeft, Lightbulb, TrendingUp, DollarSign, Users, BookOpen, Target, Briefcase } from "lucide-react";
+import { ArrowLeft, TrendingUp, DollarSign, Users, BookOpen } from "lucide-react";
 import SimulationStarter from "@/components/SimulationStarter";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -120,227 +120,208 @@ export default function SimulationPageClient({ sim }: { sim: Sim }) {
 
       {/* Role Information Grid */}
       {roleInfo && (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-12">
-          {/* Fun Facts */}
-          {roleInfo.funFacts && roleInfo.funFacts.length > 0 && (
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.2, duration: 0.5 }}
-            >
-              <Card className="h-full">
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <Lightbulb className="h-5 w-5 text-yellow-500" />
-                    Fun Facts
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <ul className="space-y-3">
-                    {roleInfo.funFacts.map((fact: string, index: number) => (
-                      <li key={index} className="text-sm leading-relaxed flex items-start gap-2">
-                        <span className="text-yellow-500 mt-1">•</span>
-                        {fact}
-                      </li>
-                    ))}
-                  </ul>
-                </CardContent>
-              </Card>
-            </motion.div>
-          )}
+        <div className="space-y-8 mb-12">
+          {/* Top Row - Career Path and Salary/Growth */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+            {/* Career Path */}
+            {roleInfo.careerPath && roleInfo.careerPath.length > 0 && (
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.2, duration: 0.5 }}
+              >
+                <Card className="h-full">
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <TrendingUp className="h-5 w-5 text-green-500" />
+                      Career Path
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="relative">
+                      {/* Timeline */}
+                      <div className="absolute left-4 top-0 bottom-0 w-0.5 bg-gradient-to-b from-green-200 via-green-400 to-green-600"></div>
+                      
+                      <div className="space-y-4">
+                        {roleInfo.careerPath.map((path: string, index: number) => (
+                          <motion.div
+                            key={index}
+                            initial={{ opacity: 0, x: -20 }}
+                            animate={{ opacity: 1, x: 0 }}
+                            transition={{ delay: 0.3 + index * 0.1, duration: 0.4 }}
+                            className="relative flex items-start gap-4"
+                          >
+                            {/* Timeline Node */}
+                            <div className="relative z-10 flex-shrink-0">
+                              <div className={`
+                                w-8 h-8 rounded-full flex items-center justify-center text-white font-bold text-sm
+                                ${index === 0 
+                                  ? 'bg-gradient-to-br from-green-500 to-emerald-600 shadow-lg shadow-green-500/50' 
+                                  : index === roleInfo.careerPath.length - 1
+                                  ? 'bg-gradient-to-br from-purple-500 to-indigo-600 shadow-lg shadow-purple-500/50'
+                                  : 'bg-gradient-to-br from-blue-500 to-cyan-600 shadow-lg shadow-blue-500/50'
+                                }
+                              `}>
+                                {index + 1}
+                              </div>
+                              {/* Glow effect for current role */}
+                              {index === 0 && (
+                                <motion.div
+                                  className="absolute inset-0 rounded-full bg-green-400/30 blur-md"
+                                  animate={{ scale: [1, 1.2, 1] }}
+                                  transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
+                                />
+                              )}
+                            </div>
+                            
+                            {/* Content */}
+                            <div className="flex-1 pt-1">
+                              <div className={`
+                                p-3 rounded-lg border transition-all duration-200 hover:shadow-md
+                                ${index === 0 
+                                  ? 'bg-gradient-to-r from-green-50 to-emerald-50 border-green-200 dark:from-green-950/20 dark:to-emerald-950/20 dark:border-green-800' 
+                                  : index === roleInfo.careerPath.length - 1
+                                  ? 'bg-gradient-to-r from-purple-50 to-indigo-50 border-purple-200 dark:from-purple-950/20 dark:to-indigo-950/20 dark:border-purple-800'
+                                  : 'bg-gradient-to-r from-blue-50 to-cyan-50 border-blue-200 dark:from-blue-950/20 dark:to-cyan-950/20 dark:border-blue-800'
+                                }
+                              `}>
+                                <p className={`
+                                  text-sm font-medium leading-relaxed
+                                  ${index === 0 
+                                    ? 'text-green-800 dark:text-green-200' 
+                                    : index === roleInfo.careerPath.length - 1
+                                    ? 'text-purple-800 dark:text-purple-200'
+                                    : 'text-blue-800 dark:text-blue-200'
+                                  }
+                                `}>
+                                  {path}
+                                </p>
+                            
+                              </div>
+                            </div>
+                          </motion.div>
+                        ))}
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              </motion.div>
+            )}
 
-          {/* Skills Needed */}
-          {roleInfo.skillsNeeded && roleInfo.skillsNeeded.length > 0 && (
+            {/* Salary & Growth */}
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.3, duration: 0.5 }}
+              className="space-y-4"
             >
-              <Card className="h-full">
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <Target className="h-5 w-5 text-blue-500" />
-                    Key Skills
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="flex flex-wrap gap-2">
-                    {roleInfo.skillsNeeded.map((skill: string, index: number) => (
-                      <Badge key={index} variant="secondary" className="text-xs">
-                        {skill}
-                      </Badge>
-                    ))}
-                  </div>
-                </CardContent>
-              </Card>
-            </motion.div>
-          )}
+              {roleInfo.salaryRange && (
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <DollarSign className="h-5 w-5 text-emerald-500" />
+                      Salary Range
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <p className="text-2xl font-semibold text-emerald-600">{roleInfo.salaryRange}</p>
+                  </CardContent>
+                </Card>
+              )}
 
-          {/* Career Path */}
-          {roleInfo.careerPath && roleInfo.careerPath.length > 0 && (
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.4, duration: 0.5 }}
-            >
-              <Card className="h-full">
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <TrendingUp className="h-5 w-5 text-green-500" />
-                    Career Path
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <ul className="space-y-2">
-                    {roleInfo.careerPath.map((path: string, index: number) => (
-                      <li key={index} className="text-sm leading-relaxed flex items-start gap-2">
-                        <span className="text-green-500 mt-1">→</span>
-                        {path}
-                      </li>
-                    ))}
-                  </ul>
-                </CardContent>
-              </Card>
+              {roleInfo.growthOutlook && (
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <TrendingUp className="h-5 w-5 text-purple-500" />
+                      Growth Outlook
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <p className="text-sm leading-relaxed">{roleInfo.growthOutlook}</p>
+                  </CardContent>
+                </Card>
+              )}
             </motion.div>
-          )}
+          </div>
 
-          {/* Salary & Growth */}
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.5, duration: 0.5 }}
-            className="space-y-4"
-          >
-            {roleInfo.salaryRange && (
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <DollarSign className="h-5 w-5 text-emerald-500" />
-                    Salary Range
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-2xl font-semibold text-emerald-600">{roleInfo.salaryRange}</p>
-                </CardContent>
-              </Card>
+          {/* Bottom Row - Industries, Education, and Traits */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {/* Industries */}
+            {roleInfo.industries && roleInfo.industries.length > 0 && (
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.4, duration: 0.5 }}
+              >
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2 text-base">
+                      <Users className="h-4 w-4 text-indigo-500" />
+                      Industries
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="flex flex-wrap gap-1">
+                      {roleInfo.industries.map((industry: string, index: number) => (
+                        <Badge key={index} variant="outline" className="text-xs">
+                          {industry}
+                        </Badge>
+                      ))}
+                    </div>
+                  </CardContent>
+                </Card>
+              </motion.div>
             )}
 
-            {roleInfo.growthOutlook && (
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <TrendingUp className="h-5 w-5 text-purple-500" />
-                    Growth Outlook
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-sm leading-relaxed">{roleInfo.growthOutlook}</p>
-                </CardContent>
-              </Card>
-            )}
-          </motion.div>
-        </div>
-      )}
-
-      {/* Additional Information */}
-      {roleInfo && (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-12">
-          {/* Daily Tasks */}
-          {roleInfo.dailyTasks && roleInfo.dailyTasks.length > 0 && (
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.6, duration: 0.5 }}
-            >
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2 text-base">
-                    <Briefcase className="h-4 w-4 text-orange-500" />
-                    Daily Tasks
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <ul className="space-y-2">
-                    {roleInfo.dailyTasks.map((task: string, index: number) => (
-                      <li key={index} className="text-sm leading-relaxed flex items-start gap-2">
-                        <span className="text-orange-500 mt-1">•</span>
-                        {task}
-                      </li>
-                    ))}
-                  </ul>
-                </CardContent>
-              </Card>
-            </motion.div>
-          )}
-
-          {/* Industries */}
-          {roleInfo.industries && roleInfo.industries.length > 0 && (
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.7, duration: 0.5 }}
-            >
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2 text-base">
-                    <Users className="h-4 w-4 text-indigo-500" />
-                    Industries
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="flex flex-wrap gap-1">
-                    {roleInfo.industries.map((industry: string, index: number) => (
-                      <Badge key={index} variant="outline" className="text-xs">
-                        {industry}
-                      </Badge>
-                    ))}
-                  </div>
-                </CardContent>
-              </Card>
-            </motion.div>
-          )}
-
-          {/* Education & Traits */}
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.8, duration: 0.5 }}
-            className="space-y-4"
-          >
+            {/* Education */}
             {roleInfo.education && (
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2 text-base">
-                    <BookOpen className="h-4 w-4 text-teal-500" />
-                    Education
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-sm leading-relaxed">{roleInfo.education}</p>
-                </CardContent>
-              </Card>
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.5, duration: 0.5 }}
+              >
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2 text-base">
+                      <BookOpen className="h-4 w-4 text-teal-500" />
+                      Education
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <p className="text-sm leading-relaxed">{roleInfo.education}</p>
+                  </CardContent>
+                </Card>
+              </motion.div>
             )}
 
+            {/* Ideal Traits */}
             {roleInfo.personalityTraits && roleInfo.personalityTraits.length > 0 && (
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2 text-base">
-                    <Users className="h-4 w-4 text-pink-500" />
-                    Ideal Traits
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="flex flex-wrap gap-1">
-                    {roleInfo.personalityTraits.map((trait: string, index: number) => (
-                      <Badge key={index} variant="secondary" className="text-xs">
-                        {trait}
-                      </Badge>
-                    ))}
-                  </div>
-                </CardContent>
-              </Card>
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.6, duration: 0.5 }}
+              >
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2 text-base">
+                      <Users className="h-4 w-4 text-pink-500" />
+                      Ideal Traits
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="flex flex-wrap gap-1">
+                      {roleInfo.personalityTraits.map((trait: string, index: number) => (
+                        <Badge key={index} variant="secondary" className="text-xs">
+                          {trait}
+                        </Badge>
+                      ))}
+                    </div>
+                  </CardContent>
+                </Card>
+              </motion.div>
             )}
-          </motion.div>
+          </div>
         </div>
       )}
 
