@@ -2,6 +2,7 @@ import { supabaseAnon, supabaseAdmin } from "@/lib/supabase";
 import SimulationOverviewClient from "@/components/SimulationOverviewClient";
 
 type Sim = {
+  id: string;
   slug: string;
   title: string;
   steps: any[] | null;
