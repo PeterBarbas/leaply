@@ -42,11 +42,6 @@ export default function SimulateClient ({ sims }: { sims: SimRow[] }) {
   const [q, setQ] = useState('')
   const [openChat, setOpenChat] = useState(false)
 
-  // Debug logging
-  console.log("🔍 SimulateClient - Received sims:", sims);
-  console.log("🔍 SimulateClient - Sims count:", sims?.length || 0);
-  console.log("🔍 SimulateClient - Sims details:", sims?.map(s => ({ slug: s.slug, title: s.title, active: s.active })));
-
   // close on Escape
   useEffect(() => {
     function onKey (e: KeyboardEvent) {
