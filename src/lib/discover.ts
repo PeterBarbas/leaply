@@ -126,6 +126,62 @@ Return **strict JSON only** in one of the following formats — no additional te
       };
 }
 
+export async function generateRoleInformation(roleTitle: string) {
+  const SYSTEM = `
+You are a career information expert. Generate comprehensive, engaging information about the role: ${roleTitle}.
+
+Create detailed, accurate, and interesting content that would help someone understand this career path. Include real industry insights, current trends, and practical information.
+
+Return STRICT JSON with this exact structure:
+{
+  "overview": "2-3 sentence description of what this role does and its importance",
+  "funFacts": ["5 interesting, surprising, or little-known facts about this role/industry"],
+  "skillsNeeded": ["6-8 key skills required for this role"],
+  "careerPath": ["3-4 typical career progression paths with job titles"],
+  "salaryRange": "Realistic salary range for this role (e.g., '$50,000 - $120,000+')",
+  "dailyTasks": ["5-6 typical daily activities for this role"],
+  "industries": ["6-8 industries where this role is common"],
+  "growthOutlook": "1-2 sentences about job market growth and future prospects",
+  "education": "1-2 sentences about typical education requirements and alternatives",
+  "personalityTraits": ["5 personality traits that suit this role well"]
+}
+
+RULES:
+- Make content engaging and informative
+- Use current, accurate information
+- Keep fun facts surprising but true
+- Make career paths realistic and specific
+- Include diverse industries where applicable
+- Be encouraging but realistic about growth prospects
+`.trim();
+
+  const resp = await openai.chat.completions.create({
+    model: OPENAI_MODEL,
+    messages: [
+      { role: "system", content: SYSTEM },
+      {
+        role: "user",
+        content: `Generate comprehensive role information for: ${roleTitle}`,
+      },
+    ],
+    response_format: { type: "json_object" },
+    temperature: 0.6,
+  });
+
+  return JSON.parse(resp.choices[0].message.content || "{}") as {
+    overview: string;
+    funFacts: string[];
+    skillsNeeded: string[];
+    careerPath: string[];
+    salaryRange: string;
+    dailyTasks: string[];
+    industries: string[];
+    growthOutlook: string;
+    education: string;
+    personalityTraits: string[];
+  };
+}
+
 export async function generateSimulationSpec(roleTitle: string) {
   // Utility to create clean kebab-case slugs
   const kebab = (s: string) =>
@@ -143,7 +199,7 @@ You generate highly specific, **text-only** corporate simulation specs for the r
 - "slug_suggestion" MUST be "${kebab(roleTitle)}
 - Every step's "role" MUST equal "${roleTitle}".
 
-Each simulation must contain 4–6 **atomic** day-to-day micro-tasks that take ~5–10 minutes.
+Each simulation must contain exactly **4–5 atomic** day-to-day micro-tasks that take ~5–10 minutes each. You MUST generate at least 4 tasks, preferably 5.
 
 Atomic means a single concrete action with explicit constraints (length/format/count/metric) and a tiny deliverable.
 Examples:

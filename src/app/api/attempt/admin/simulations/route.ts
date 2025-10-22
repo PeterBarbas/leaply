@@ -8,7 +8,7 @@ export async function GET(req: Request) {
     assertAdmin(req);
     const { data, error } = await supabaseAdmin
       .from("simulations")
-      .select("slug,title,steps,rubric,active")
+      .select("slug,title,steps,rubric,role_info,active")
       .order("title", { ascending: true });
     if (error) throw error;
     return NextResponse.json({ sims: data ?? [] });
@@ -22,6 +22,7 @@ const Upsert = z.object({
   title: z.string().min(1),
   steps: z.array(z.any()).default([]),
   rubric: z.array(z.string()).default([]),
+  role_info: z.any().optional(),
   active: z.boolean().default(true),
 });
 
@@ -36,6 +37,7 @@ export async function POST(req: Request) {
       title: input.title,
       steps: input.steps,
       rubric: input.rubric,
+      role_info: input.role_info,
       active: input.active,
     });
     if (error) throw error;

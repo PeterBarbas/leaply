@@ -6,6 +6,7 @@ type Sim = {
   title: string;
   steps: any[] | null;
   rubric: string[] | null;
+  role_info: any | null;
   active: boolean;
 };
 
@@ -26,7 +27,7 @@ export default async function Simulation(props: { params: Promise<{ slug: string
   }
 
   return (
-    <main className="min-h-screen bg-gradient-to-b from-white via-[#f9fafb] to-[#eef1f5] dark:from-zinc-950 dark:via-zinc-900 dark:to-zinc-800 transition-colors">
+    <main className="min-h-screen bg-white dark:bg-zinc-950 transition-colors">
       <SimulationPageClient sim={sim} />
     </main>
   );

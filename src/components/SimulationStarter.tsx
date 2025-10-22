@@ -1,36 +1,53 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
-import SimulationRunner from "./SimulationRunner";
+import { Play, RefreshCw, Eye } from "lucide-react";
 
-type Step =
-  | { kind: "prompt"; index: number; label: string }
-  | { kind: "mcq"; index: number; label: string; options: string[] };
+type SimulationProgress = {
+  attemptId: string;
+  completedTasks: number[];
+  timestamp: number;
+  simulationSlug: string;
+  totalTasks?: number;
+};
 
 export default function SimulationStarter({ simulationSlug }: { simulationSlug: string }) {
+  const router = useRouter();
   const [loading, setLoading] = useState(false);
-  const [attemptId, setAttemptId] = useState<string | null>(null);
-  const [steps, setSteps] = useState<Step[] | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [progress, setProgress] = useState<SimulationProgress | null>(null);
+
+  // Check for existing progress on mount
+  useEffect(() => {
+    const sessionKey = `simulation_progress_${simulationSlug}`;
+    const savedProgress = sessionStorage.getItem(sessionKey);
+    
+    if (savedProgress) {
+      try {
+        const progressData: SimulationProgress = JSON.parse(savedProgress);
+        // Only use progress if it's recent (within 24 hours)
+        if (Date.now() - progressData.timestamp < 24 * 60 * 60 * 1000) {
+          setProgress(progressData);
+        } else {
+          // Clear old progress
+          sessionStorage.removeItem(sessionKey);
+        }
+      } catch (error) {
+        console.error('Failed to parse saved progress:', error);
+        sessionStorage.removeItem(sessionKey);
+      }
+    }
+  }, [simulationSlug]);
 
   const startAttempt = async () => {
     try {
       setLoading(true);
       setError(null);
 
-      // ✅ RELATIVE URL (no NEXT_PUBLIC_SITE_URL)
-      const res = await fetch("/api/attempt/start", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ simulationSlug }),
-      });
-
-      const data = await res.json();
-      if (!res.ok) throw new Error(data?.error || "Failed to start attempt");
-
-      setAttemptId(data.attemptId);
-      setSteps(data.steps);
+      // Redirect directly to the overview page - it will create the attempt automatically
+      router.push(`/s/${simulationSlug}/overview`);
     } catch (e: any) {
       setError(e.message || "Something went wrong");
     } finally {
@@ -38,15 +55,109 @@ export default function SimulationStarter({ simulationSlug }: { simulationSlug: 
     }
   };
 
-  if (attemptId && steps) {
-    return <SimulationRunner attemptId={attemptId} steps={steps} />;
-  }
+  const continueAttempt = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+
+      // Redirect to overview page with existing attemptId
+      if (progress?.attemptId) {
+        router.push(`/s/${simulationSlug}/overview?attemptId=${progress.attemptId}`);
+      } else {
+        router.push(`/s/${simulationSlug}/overview`);
+      }
+    } catch (e: any) {
+      setError(e.message || "Something went wrong");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const viewSimulation = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+
+      // Redirect to overview page to view completed simulation
+      if (progress?.attemptId) {
+        router.push(`/s/${simulationSlug}/overview?attemptId=${progress.attemptId}`);
+      }
+    } catch (e: any) {
+      setError(e.message || "Something went wrong");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Determine button state
+  const hasProgress = progress && progress.completedTasks.length > 0;
+  const isCompleted = progress && progress.totalTasks && 
+                      progress.completedTasks.length === progress.totalTasks;
 
   return (
-    <div className="mt-6">
-      <Button onClick={startAttempt} disabled={loading}>
-        {loading ? "Starting..." : "Start attempt"}
-      </Button>
+    <div className="mt-6 flex flex-col items-center gap-3">
+      {isCompleted ? (
+        <>
+          <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto justify-center">
+            <Button 
+              onClick={viewSimulation} 
+              disabled={loading} 
+              className="w-full sm:w-auto sm:min-w-[200px]"
+            >
+              {loading ? (
+                "Loading..."
+              ) : (
+                <>
+                  View Simulation
+                </>
+              )}
+            </Button>
+            <Button 
+              onClick={startAttempt} 
+              disabled={loading} 
+              variant="outline"
+              className="w-full sm:w-auto sm:min-w-[200px]"
+            >
+              Start New Attempt
+            </Button>
+          </div>
+        </>
+      ) : hasProgress ? (
+        <>
+          <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto justify-center">
+            <Button 
+              onClick={continueAttempt} 
+              disabled={loading} 
+              className="w-full sm:w-auto sm:min-w-[200px]"
+            >
+              {loading ? (
+                "Loading..."
+              ) : (
+                <>
+                  Continue Simulation
+                </>
+              )}
+            </Button>
+          </div>
+          <p className="text-sm text-muted-foreground">
+            {progress.completedTasks.length} task{progress.completedTasks.length !== 1 ? 's' : ''} completed
+          </p>
+        </>
+      ) : (
+        <Button 
+          onClick={startAttempt} 
+          disabled={loading} 
+          className="w-full sm:w-auto sm:min-w-[200px]"
+        >
+          {loading ? (
+            "Starting..."
+          ) : (
+            <>
+              Start Attempt
+            </>
+          )}
+        </Button>
+      )}
       {error && <p className="mt-2 text-sm text-red-600">{error}</p>}
     </div>
   );

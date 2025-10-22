@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { supabaseAdmin, supabaseAnon } from "@/lib/supabase";
-import { getNextAction, generateSimulationSpec, QA } from "@/lib/discover";
+import { getNextAction, generateSimulationSpec, generateRoleInformation, QA } from "@/lib/discover";
 import { slugify } from "@/lib/slug";
 import { normalizeAndEnforceSteps } from "@/lib/task_enforcer";
 
@@ -81,8 +81,12 @@ async function ensureSimulationExists(
 
   if (!allowCreate) return { slug: undefined, created: false };
 
-  // Generate spec via OpenAI
-  const spec = await generateSimulationSpec(title);
+  // Generate both simulation spec and role information via OpenAI
+  const [spec, roleInfo] = await Promise.all([
+    generateSimulationSpec(title),
+    generateRoleInformation(title)
+  ]);
+  
   const baseSlug = slugify(spec.slug_suggestion || spec.title || title);
   let slug = baseSlug || slugify(title) || "new-role";
   let n = 1;
@@ -97,6 +101,7 @@ async function ensureSimulationExists(
     title: spec.title || title,
     steps: taskSteps,
     rubric: Array.isArray(spec.rubric) ? spec.rubric : [],
+    role_info: roleInfo, // Store the generated role information
     active: true,
   });
   if (error) throw new Error(`Failed to create simulation: ${error.message}`);

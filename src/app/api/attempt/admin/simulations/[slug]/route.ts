@@ -9,6 +9,7 @@ const Upsert = z.object({
   title: z.string().min(1),
   steps: z.array(z.unknown()).default([]),
   rubric: z.array(z.string()).default([]),
+  role_info: z.any().optional(),
   active: z.boolean().default(true),
 });
 
@@ -29,6 +30,7 @@ export async function PUT(
         title: input.title,
         steps: input.steps,
         rubric: input.rubric,
+        role_info: input.role_info,
         active: input.active,
       })
       .eq("slug", slug);
