@@ -46,7 +46,7 @@ export default function Home() {
                 transition={{ delay: 0.05, duration: 0.5 }}
                 className="inline-flex items-center gap-2 rounded-full border border-foreground/10 bg-background/60 px-3 py-1 text-xs text-foreground/70 dark:bg-background/40"
               >
-                <span>Your Career Discovery Assistant</span>
+                <span>✨ Your Career Discovery Assistant</span>
               </motion.div>
 
               <motion.h1

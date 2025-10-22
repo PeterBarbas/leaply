@@ -73,25 +73,39 @@ export default function CareerDiscoveryChat({
   useEffect(() => {
     const el = scrollRef.current;
     if (!el) return;
-    requestAnimationFrame(() => {
+    
+    // Use a more stable scroll approach
+    const scrollToBottom = () => {
       const nearBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 100;
-      if (nearBottom) el.scrollTo({ top: el.scrollHeight, behavior: 'smooth' });
-    });
+      if (nearBottom) {
+        // Use instant scroll for better performance on mobile
+        el.scrollTop = el.scrollHeight;
+      }
+    };
+    
+    // Use requestAnimationFrame for smooth updates
+    requestAnimationFrame(scrollToBottom);
   }, [messages, pending, bootTyping, currentQ]);
 
-  // Handle mobile keyboard visibility
+  // Handle mobile keyboard visibility with debouncing
   useEffect(() => {
+    let timeoutId: NodeJS.Timeout;
+    
     const handleResize = () => {
-      // Detect keyboard by comparing window height with visual viewport
-      if (window.visualViewport) {
-        const heightDiff = window.innerHeight - window.visualViewport.height;
-        setKeyboardHeight(Math.max(0, heightDiff));
-      } else {
-        // Fallback for browsers without visual viewport API
-        const initialHeight = window.innerHeight;
-        const currentHeight = window.screen.height;
-        setKeyboardHeight(Math.max(0, initialHeight - currentHeight));
-      }
+      // Debounce resize events to prevent excessive updates
+      clearTimeout(timeoutId);
+      timeoutId = setTimeout(() => {
+        // Detect keyboard by comparing window height with visual viewport
+        if (window.visualViewport) {
+          const heightDiff = window.innerHeight - window.visualViewport.height;
+          setKeyboardHeight(Math.max(0, heightDiff));
+        } else {
+          // Fallback for browsers without visual viewport API
+          const initialHeight = window.innerHeight;
+          const currentHeight = window.screen.height;
+          setKeyboardHeight(Math.max(0, initialHeight - currentHeight));
+        }
+      }, 100); // Debounce for 100ms
     };
 
     // Listen for visual viewport changes (modern approach)
@@ -103,6 +117,7 @@ export default function CareerDiscoveryChat({
     }
 
     return () => {
+      clearTimeout(timeoutId);
       if (window.visualViewport) {
         window.visualViewport.removeEventListener('resize', handleResize);
       } else {
@@ -110,19 +125,6 @@ export default function CareerDiscoveryChat({
       }
     };
   }, []);
-
-  // Scroll to input when keyboard opens
-  useEffect(() => {
-    if (keyboardHeight > 0 && inputRef.current) {
-      // Small delay to ensure keyboard is fully open
-      setTimeout(() => {
-        inputRef.current?.scrollIntoView({ 
-          behavior: 'smooth', 
-          block: 'center' 
-        });
-      }, 100);
-    }
-  }, [keyboardHeight]);
 
   useEffect(() => {
     setMessages([
@@ -237,8 +239,8 @@ export default function CareerDiscoveryChat({
     setInput('');
     setCurrentQ(null);
     await requestNext(qasNext);
-    setTimeout(() => inputRef.current?.focus(), 50);
-
+    // Remove auto-focus to prevent jumping
+    // setTimeout(() => inputRef.current?.focus(), 50);
   }
 
   async function choose(option: string) {
@@ -286,6 +288,10 @@ export default function CareerDiscoveryChat({
     'px-3 sm:px-3',
     embed ? 'py-2' : 'py-3',
     'space-y-3',
+    // Mobile scroll improvements
+    'overscroll-behavior-contain', // Prevent scroll chaining
+    'scroll-smooth', // Smooth scrolling
+    'touch-pan-y', // Optimize touch scrolling
   ].join(' ');
 
   // For dedicated page with fixed height, use stable height that doesn't change with mobile browser toolbar
@@ -408,10 +414,13 @@ export default function CareerDiscoveryChat({
 
         {/* Composer (always at bottom of the frame) */}
         <div 
-          className="px-2 sm:px-2 pt-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] rounded-b-2xl border-t border-foreground/10 bg-background/70 backdrop-blur mobile-input-container"
+          className="px-2 sm:px-2 pt-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] rounded-b-2xl border-t border-foreground/10 bg-background/70 backdrop-blur mobile-input-container relative z-10"
           style={{
             // Adjust padding bottom when keyboard is open
-            paddingBottom: keyboardHeight > 0 ? '0.5rem' : undefined
+            paddingBottom: keyboardHeight > 0 ? '0.5rem' : undefined,
+            // Ensure stable positioning on mobile
+            position: 'relative',
+            transform: 'translateZ(0)', // Force hardware acceleration
           }}
         >
           {result ? (
@@ -457,13 +466,22 @@ export default function CareerDiscoveryChat({
                     : 'Waiting for question…'
                 }
                 onFocus={() => {
-                  // Ensure input is visible when focused
-                  setTimeout(() => {
-                    inputRef.current?.scrollIntoView({ 
-                      behavior: 'smooth', 
-                      block: 'center' 
-                    });
-                  }, 300); // Delay to allow keyboard to open
+                  // Only scroll if we're on mobile and keyboard is not already open
+                  if (window.innerWidth < 640 && keyboardHeight === 0) {
+                    // Use a more gentle scroll approach
+                    setTimeout(() => {
+                      if (inputRef.current) {
+                        const rect = inputRef.current.getBoundingClientRect();
+                        const isVisible = rect.top >= 0 && rect.bottom <= window.innerHeight;
+                        if (!isVisible) {
+                          inputRef.current.scrollIntoView({ 
+                            behavior: 'smooth', 
+                            block: 'nearest' // Less aggressive than 'center'
+                          });
+                        }
+                      }
+                    }, 200); // Reduced delay
+                  }
                 }}
                 onKeyDown={(e) => {
                   if (e.key === 'Enter' && !e.shiftKey) {
@@ -477,6 +495,10 @@ export default function CareerDiscoveryChat({
                   'border border-foreground/10',
                   'focus-visible:ring-0 focus-visible:ring-primary focus-visible:border-foreground/10',
                   'placeholder:text-muted-foreground/60',
+                  // Mobile-specific improvements
+                  'text-base', // Prevent zoom on iOS
+                  'touch-manipulation', // Improve touch responsiveness
+                  'will-change-auto', // Optimize for mobile
                 ].join(' ')}
               />
 

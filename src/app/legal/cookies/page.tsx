@@ -2,6 +2,7 @@
 'use client'
 
 import Link from 'next/link'
+import Script from 'next/script'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Linkedin, Twitter, Instagram, Github, MessageCircle } from 'lucide-react'
 
@@ -239,6 +240,16 @@ export default function CookiesPage() {
                   display detailed information about all cookies used on this website, including 
                   their purpose, duration, and whether they are first-party or third-party cookies.
                 </p>
+              </div>
+              
+              {/* Cookiebot Declaration Script */}
+              <div className="mt-6">
+                <script
+                  id="CookieDeclaration"
+                  src="https://consent.cookiebot.com/d9c7b88e-b648-4262-9665-fc7102c62640/cd.js"
+                  type="text/javascript"
+                  async
+                />
               </div>
             </section>
 

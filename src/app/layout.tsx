@@ -37,11 +37,6 @@ export default function RootLayout({
         <Header />
         {children}
         <Footer />
-        <Script
-          id="CookieDeclaration"
-          src="https://consent.cookiebot.com/d9c7b88e-b648-4262-9665-fc7102c62640/cd.js"
-          strategy="afterInteractive"
-        />
       </body>
     </html>
   );
