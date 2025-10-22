@@ -73,6 +73,9 @@ export default function Footer() {
             <li>
               <Link href="/legal/privacy" className="hover:text-foreground transition">Privacy Policy</Link>
             </li>
+            <li>
+              <Link href="/legal/cookies" className="hover:text-foreground transition">Cookies Policy</Link>
+            </li>
           </ul>
         </div>
       </div>

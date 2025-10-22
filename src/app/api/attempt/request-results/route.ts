@@ -114,7 +114,7 @@ async function maybeSendEmail(to: string, simTitle: string, result: any) {
       <ul>${(result.strengths || []).map((s: string) => `<li>${s}</li>`).join("")}</ul>
       <p style="margin:12px 0 4px 0"><strong>Improvements</strong></p>
       <ul>${(result.improvements || []).map((s: string) => `<li>${s}</li>`).join("")}</ul>
-      <p style="margin-top:16px">Try another role: <a href="${process.env.NEXT_PUBLIC_SITE_URL || ""}/simulate">Leaply simulations</a>.</p>
+      <p style="margin-top:16px">Try another role at <a href="${process.env.NEXT_PUBLIC_SITE_URL || ""}/simulate">meetleaply.ai</a>.</p>
     </div>
   `;
 

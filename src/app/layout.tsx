@@ -25,11 +25,25 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-<body className="min-h-screen flex flex-col bg-background text-foreground">
-
+      <head>
+        <script 
+          id="Cookiebot" 
+          src="https://consent.cookiebot.com/uc.js" 
+          data-cbid="d9c7b88e-b648-4262-9665-fc7102c62640" 
+          data-blockingmode="auto" 
+          type="text/javascript"
+        />
+      </head>
+      <body className="min-h-screen flex flex-col bg-background text-foreground">
         <Header />
         {children}
         <Footer />
+        <script 
+          id="CookieDeclaration" 
+          src="https://consent.cookiebot.com/d9c7b88e-b648-4262-9665-fc7102c62640/cd.js" 
+          type="text/javascript" 
+          async
+        />
       </body>
     </html>
   );
