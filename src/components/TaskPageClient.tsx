@@ -280,165 +280,159 @@ export default function TaskPageClient({
         </motion.div>
       )}
 
-      {/* Input Section - Gamified */}
+      {/* Your Response Block */}
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.2, duration: 0.5 }}
-        className="mb-8"
+        className="mb-8 space-y-4"
       >
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center">
-              <span className="text-lg font-bold">Your Response</span>
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            {/* Text/Code Input with Buttons in Bottom Right */}
-            <div className="relative">
-              {isCodeMode ? (
-                /* Code Editor Mode */
-                <div className="relative bg-[#1e1e1e] rounded-lg overflow-hidden border border-gray-700">
-                  {/* Line Numbers */}
-                  <div className="flex">
-                    <div className="flex-shrink-0 bg-[#252526] text-gray-500 text-xs font-mono py-3 px-2 select-none min-w-[2rem] text-right border-r border-gray-700">
-                      {(input || ' ').split('\n').map((_, i) => (
-                        <div key={i} className="leading-6 h-6">
-                          {i + 1}
-                        </div>
-                      ))}
-                    </div>
-                    <Textarea
-                      placeholder="// Write your code here..."
-                      value={input}
-                      onChange={(e) => setInput(e.target.value)}
-                      className="flex-1 min-h-[200px] bg-[#1e1e1e] text-gray-100 font-mono text-sm border-0 focus-visible:ring-0 focus-visible:ring-primary focus-visible:border-foreground/10 resize-none rounded-none py-3 px-4"
-                      style={{ lineHeight: '1.5rem' }}
-                    />
-                  </div>
-                </div>
-              ) : (
-                /* Text Mode */
-                <Textarea
-                  placeholder={task.expected_input?.placeholder || "Write your response here..."}
-                  value={input}
-                  onChange={(e) => setInput(e.target.value)}
-                  className="min-h-[200px] pr-24 focus-visible:ring-0 focus-visible:ring-primary focus-visible:border-foreground/10"
-                />
-              )}
-              
-              {/* Bottom Right Buttons */}
-              <div className="absolute bottom-3 right-3 flex gap-2">
-                <motion.button
-                  whileHover={{ scale: 1.1 }}
-                  whileTap={{ scale: 0.9 }}
-                  onClick={getHint}
-                  disabled={loading.hint}
-                  className="p-2 rounded-lg bg-yellow-100 hover:bg-yellow-200 dark:bg-yellow-900/50 dark:hover:bg-yellow-900 transition-colors shadow-sm disabled:opacity-50"
-                  title="Get a hint"
-                >
-                  <Lightbulb className="h-4 w-4 text-yellow-600 dark:text-yellow-400" />
-                </motion.button>
-
-                <motion.button
-                  whileHover={{ scale: 1.1 }}
-                  whileTap={{ scale: 0.9 }}
-                  onClick={() => setIsCodeMode(!isCodeMode)}
-                  className={`p-2 rounded-lg transition-colors shadow-sm ${
-                    isCodeMode 
-                      ? 'bg-purple-200 hover:bg-purple-300 dark:bg-purple-800 dark:hover:bg-purple-700' 
-                      : 'bg-gray-200 hover:bg-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600'
-                  }`}
-                  title={isCodeMode ? "Switch to text mode" : "Switch to code mode"}
-                >
-                  <Code className={`h-4 w-4 ${isCodeMode ? 'text-purple-700 dark:text-purple-200' : 'text-gray-600 dark:text-gray-400'}`} />
-                </motion.button>
-                
-                <motion.button
-                  whileHover={{ scale: 1.1 }}
-                  whileTap={{ scale: 0.9 }}
-                  onClick={() => fileInputRef.current?.click()}
-                  className="p-2 rounded-lg bg-blue-100 hover:bg-blue-200 dark:bg-blue-900/50 dark:hover:bg-blue-900 transition-colors shadow-sm"
-                  title="Attach files (PDF, images, Excel)"
-                >
-                  <Paperclip className="h-4 w-4 text-blue-600 dark:text-blue-400" />
-                </motion.button>
-              </div>
-              
-              {/* Hidden File Input */}
-              <input
-                ref={fileInputRef}
-                type="file"
-                multiple
-                accept=".pdf,.png,.jpg,.jpeg,.gif,.webp,.xls,.xlsx"
-                onChange={handleFileSelect}
-                className="hidden"
-              />
-            </div>
-
-            {/* Attached Files */}
-            {attachments.length > 0 && (
-              <div className="space-y-2">
-                <p className="text-sm font-medium text-muted-foreground">Attachments:</p>
-                <div className="flex flex-wrap gap-2">
-                  {attachments.map((file, index) => (
-                    <motion.div
-                      key={index}
-                      initial={{ opacity: 0, scale: 0.8 }}
-                      animate={{ opacity: 1, scale: 1 }}
-                      className="flex items-center gap-2 px-3 py-2 bg-blue-50 dark:bg-blue-950/30 rounded-lg border border-blue-200 dark:border-blue-800"
+                  {/* Attached Files */}
+                  {attachments.length > 0 && (
+            <div className="mt-4 space-y-2">
+              <p className="text-sm font-medium text-muted-foreground">Attachments:</p>
+              <div className="flex flex-wrap gap-2">
+                {attachments.map((file, index) => (
+                  <motion.div
+                    key={index}
+                    initial={{ opacity: 0, scale: 0.8 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    className="flex items-center gap-2 px-3 py-2 bg-blue-50 dark:bg-blue-950/30 rounded-lg border border-blue-200 dark:border-blue-800"
+                  >
+                    {getFileIcon(file)}
+                    <span className="text-xs font-medium truncate max-w-[150px]">
+                      {file.name}
+                    </span>
+                    <button
+                      onClick={() => removeAttachment(index)}
+                      className="p-1 hover:bg-blue-100 dark:hover:bg-blue-900 rounded transition-colors"
                     >
-                      {getFileIcon(file)}
-                      <span className="text-xs font-medium truncate max-w-[150px]">
-                        {file.name}
-                      </span>
-                      <button
-                        onClick={() => removeAttachment(index)}
-                        className="p-1 hover:bg-blue-100 dark:hover:bg-blue-900 rounded transition-colors"
-                      >
-                        <X className="h-3 w-3" />
-                      </button>
-                    </motion.div>
-                  ))}
+                      <X className="h-3 w-3" />
+                    </button>
+                  </motion.div>
+                ))}
+              </div>
+            </div>
+          )}
+          
+        {/* Text Input Block */}
+        <div className="rounded-lg border border-border bg-card/70">
+          <div className="relative">
+            {isCodeMode ? (
+              /* Code Editor Mode */
+              <div className="relative bg-[#1e1e1e] rounded-lg overflow-hidden border border-gray-700">
+                {/* Line Numbers */}
+                <div className="flex">
+                  <div className="flex-shrink-0 bg-[#252526] text-gray-500 text-sm font-mono py-3 px-2 select-none">
+                    {(input || ' ').split('\n').map((_, i) => (
+                      <div key={i} className="leading-6 h-6">
+                        {i + 1}
+                      </div>
+                    ))}
+                  </div>
+                  <Textarea
+                    placeholder="// Write your code here..."
+                    value={input}
+                    onChange={(e) => setInput(e.target.value)}
+                    className="flex-1 min-h-[300px] p-3 bg-[#1e1e1e] resize-y text-gray-100 font-mono text-sm border-0 focus-visible:ring-0 focus-visible:ring-primary focus-visible:border-foreground/10 rounded-none"
+                    style={{ lineHeight: '1.5rem' }}
+                  />
                 </div>
               </div>
+            ) : (
+              /* Text Mode */
+              <Textarea
+                placeholder="Your response here..."
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+                className="w-full rounded-md border-0 bg-transparent p-4 min-h-[300px] resize-y focus-visible:ring-0 focus-visible:ring-primary focus-visible:border-foreground/10 placeholder:text-muted-foreground"
+              />
             )}
-
-            {/* Action Buttons - Gamified */}
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-              <div className="flex flex-col sm:flex-row gap-2 justify-center sm:justify-start">
-                <Button 
-                  onClick={getFeedback} 
-                  disabled={!input.trim() || loading.feedback}
-                  className="bg-primary hover:bg-primary/80 w-full sm:w-auto"
-                >
-                  {loading.feedback ? "Loading..." : " Get Feedback"}
-                </Button>
-                
-                {/* Senior Example button only shows after feedback and hides after clicked */}
-                {feedback && !senior && (
-                  <Button variant="outline" onClick={getSeniorExample} disabled={loading.senior} className="w-full sm:w-auto">
-                    {loading.senior ? "Loading..." : "How would a senior do it?"}
-                  </Button>
-                )}
-              </div>
-
-              {/* Complete Task Button - Disabled until feedback received */}
-              <motion.div
-                whileTap={feedback ? { scale: 0.95 } : {}}
-                className="flex justify-center sm:justify-end"
+            
+            {/* Bottom Right Buttons */}
+            <div className="absolute bottom-3 right-3 flex gap-2">
+              <motion.button
+                whileHover={{ scale: 1.1 }}
+                whileTap={{ scale: 0.9 }}
+                onClick={getHint}
+                disabled={loading.hint}
+                className="p-2 rounded-lg bg-yellow-100 hover:bg-yellow-200 dark:bg-yellow-900/50 dark:hover:bg-yellow-900 transition-colors shadow-sm disabled:opacity-50"
+                title="Get a hint"
               >
-                <Button 
-                  onClick={handleComplete}
-                  disabled={!feedback}
-                  className="bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 shadow-lg w-full sm:w-auto disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  Submit Task
-                </Button>
-              </motion.div>
+                <Lightbulb className="h-4 w-4 text-yellow-600 dark:text-yellow-400" />
+              </motion.button>
+
+              <motion.button
+                whileHover={{ scale: 1.1 }}
+                whileTap={{ scale: 0.9 }}
+                onClick={() => setIsCodeMode(!isCodeMode)}
+                className={`p-2 rounded-lg transition-colors shadow-sm ${
+                  isCodeMode 
+                    ? 'bg-purple-200 hover:bg-purple-300 dark:bg-purple-800 dark:hover:bg-purple-700' 
+                    : 'bg-gray-200 hover:bg-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600'
+                }`}
+                title={isCodeMode ? "Switch to text mode" : "Switch to code mode"}
+              >
+                <Code className={`h-4 w-4 ${isCodeMode ? 'text-purple-700 dark:text-purple-200' : 'text-gray-600 dark:text-gray-400'}`} />
+              </motion.button>
+              
+              <motion.button
+                whileHover={{ scale: 1.1 }}
+                whileTap={{ scale: 0.9 }}
+                onClick={() => fileInputRef.current?.click()}
+                className="p-2 rounded-lg bg-blue-100 hover:bg-blue-200 dark:bg-blue-900/50 dark:hover:bg-blue-900 transition-colors shadow-sm"
+                title="Attach files (PDF, images, Excel)"
+              >
+                <Paperclip className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+              </motion.button>
             </div>
-          </CardContent>
-        </Card>
+            
+            {/* Hidden File Input */}
+            <input
+              ref={fileInputRef}
+              type="file"
+              multiple
+              accept=".pdf,.png,.jpg,.jpeg,.gif,.webp,.xls,.xlsx"
+              onChange={handleFileSelect}
+              className="hidden"
+            />
+          </div>
+        </div>
+
+
+        {/* Action Buttons - Outside the box */}
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+          <div className="flex flex-col sm:flex-row gap-2 justify-center sm:justify-start">
+            <Button 
+              onClick={getFeedback} 
+              disabled={!input.trim() || loading.feedback}
+              className="bg-primary hover:bg-primary/80 w-full sm:w-auto"
+            >
+              {loading.feedback ? "Loading..." : "Get Feedback"}
+            </Button>
+            
+            {/* Senior Example button only shows after feedback and hides after clicked */}
+            {feedback && !senior && (
+              <Button variant="outline" onClick={getSeniorExample} disabled={loading.senior} className="w-full sm:w-auto">
+                {loading.senior ? "Loading..." : "See how a Senior Would Do It"}
+              </Button>
+            )}
+          </div>
+
+          {/* Complete Task Button - Disabled until feedback received */}
+          <motion.div
+            whileTap={feedback ? { scale: 0.95 } : {}}
+            className="flex justify-center sm:justify-end"
+          >
+            <Button 
+              onClick={handleComplete}
+              disabled={!feedback}
+              className="bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 shadow-lg w-full sm:w-auto disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              Submit Task
+            </Button>
+          </motion.div>
+        </div>
       </motion.div>
 
       {/* Hint Popup - Bottom Left on Desktop, Top on Mobile */}
