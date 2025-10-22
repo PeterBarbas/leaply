@@ -136,11 +136,23 @@ export async function POST(req: Request) {
   try {
     const { attemptId, email } = Body.parse(await req.json());
 
-    // ✅ Store email directly on the attempt (no users table / no upsert)
+    // ✅ Store email directly on the attempt
     await supabaseAdmin.from("attempts").update({ email }).eq("id", attemptId);
 
     // Compute & store results
     const { result, simTitle } = await computeResults(attemptId);
+
+    // ✅ Store user in users table (email only)
+    if (email) {
+      try {
+        await supabaseAdmin
+          .from("users")
+          .upsert({ email });
+      } catch (userError) {
+        console.error("Failed to store user:", userError);
+        // Continue anyway - don't fail the whole request
+      }
+    }
 
     // Try to email (optional)
     const sendStatus = await maybeSendEmail(email, simTitle, result);
@@ -150,7 +162,7 @@ export async function POST(req: Request) {
       sendStatus, // { sent: boolean, id?: string, reason?: string, error?: string }
       message: sendStatus.sent
         ? "Your results are on the way to your inbox."
-        : "Saved, but email didn’t send. Check server logs / sendStatus.",
+        : "Saved, but email didn't send. Check server logs / sendStatus.",
     });
   } catch (err: any) {
     return NextResponse.json({ error: err.message || "Internal error" }, { status: 500 });

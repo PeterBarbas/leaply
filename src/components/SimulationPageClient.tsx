@@ -71,7 +71,7 @@ export default function SimulationPageClient({ sim }: { sim: Sim }) {
 
   return (
     <div className="mx-auto max-w-6xl px-6 py-10">
-      <div className="mb-6">
+      <div className="mb-14">
         <Link
           href="/simulate"
           className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
@@ -92,7 +92,7 @@ export default function SimulationPageClient({ sim }: { sim: Sim }) {
           {sim.title}
         </h1>
         <p className="text-lg sm:text-xl text-muted-foreground mb-6">
-          {stepCount} realistic tasks · ~10 minutes total
+          {stepCount} tasks · 10 minutes total
         </p>
         {roleInfo?.overview && (
           <p className="text-lg text-foreground/80 max-w-3xl mx-auto leading-relaxed mb-8">

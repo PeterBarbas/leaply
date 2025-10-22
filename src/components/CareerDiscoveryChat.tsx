@@ -40,11 +40,13 @@ export default function CareerDiscoveryChat({
   fixedHeight = false,
   embed = false,
   initialPref = null,
+  onStateChange,
 }: {
   hideSkip?: boolean;
   fixedHeight?: boolean;
   embed?: boolean;
   initialPref?: Pref;
+  onStateChange?: (state: any) => void;
 }) {
   const [qas, setQas] = useState<QA[]>([]);
   const [messages, setMessages] = useState<Msg[]>([]);
@@ -159,6 +161,20 @@ export default function CareerDiscoveryChat({
     return () => clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [prefLabel, qas.length]);
+
+  // Save state whenever it changes
+  useEffect(() => {
+    if (onStateChange) {
+      const state = {
+        messages,
+        qas,
+        currentQ,
+        result,
+        bootTyping
+      };
+      onStateChange(state);
+    }
+  }, [messages, qas, currentQ, result, bootTyping, onStateChange]);
 
   function addBot(text: string) {
     setMessages((m) => [...m, { from: 'bot', text }]);
@@ -458,7 +474,7 @@ export default function CareerDiscoveryChat({
                 disabled={!currentQ || currentQ.ui !== 'text' || pending}
                 className={[
                   'h-12 w-full rounded-full pr-12 pl-4',
-                  'bg-muted/60 border border-foreground/10',
+                  'border border-foreground/10',
                   'focus-visible:ring-0 focus-visible:ring-primary focus-visible:border-foreground/10',
                   'placeholder:text-muted-foreground/60',
                 ].join(' ')}

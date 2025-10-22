@@ -165,7 +165,7 @@ export default function SimulationOverviewClient({
   return (
     <div className="mx-auto max-w-6xl px-6 py-10">
       {/* Back Button - Left aligned like simulation overview */}
-      <div className="mb-6">
+      <div className="mb-14">
         <Link
           href={`/s/${sim.slug}`}
           className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
@@ -505,7 +505,7 @@ export default function SimulationOverviewClient({
               {/* Content */}
               <div className="flex-1 flex flex-col items-center text-center md:text-left">
                 <h2 className="text-2xl font-bold text-green-800 dark:text-green-200 mb-1">
-                  🎉 All Tasks Complete!
+                  All Tasks Complete!
                 </h2>
                 <p className="text-green-700 dark:text-green-300 mb-4">
                   Great job! Get your detailed results sent to your email.
@@ -531,8 +531,7 @@ export default function SimulationOverviewClient({
                   </div>
                 ) : (
                   <div className="flex items-center gap-2 text-green-700 dark:text-green-300">
-                    <CheckCircle className="h-5 w-5" />
-                    <span className="font-medium">Results sent to {email}!</span>
+                    <span className="font-medium">🚀 Results sent to {email}!</span>
                   </div>
                 )}
                 {emailError && (

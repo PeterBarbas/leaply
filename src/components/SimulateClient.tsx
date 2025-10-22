@@ -41,6 +41,7 @@ type SimRow = {
 export default function SimulateClient ({ sims }: { sims: SimRow[] }) {
   const [q, setQ] = useState('')
   const [openChat, setOpenChat] = useState(false)
+  const [keyboardHeight, setKeyboardHeight] = useState(0)
 
   // close on Escape
   useEffect(() => {
@@ -50,6 +51,68 @@ export default function SimulateClient ({ sims }: { sims: SimRow[] }) {
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
   }, [])
+
+  // Handle mobile keyboard visibility
+  useEffect(() => {
+    const handleResize = () => {
+      // Detect keyboard by comparing window height with visual viewport
+      if (window.visualViewport) {
+        const heightDiff = window.innerHeight - window.visualViewport.height;
+        setKeyboardHeight(Math.max(0, heightDiff));
+      } else {
+        // Fallback for browsers without visual viewport API
+        const initialHeight = window.innerHeight;
+        const currentHeight = window.screen.height;
+        setKeyboardHeight(Math.max(0, initialHeight - currentHeight));
+      }
+    };
+
+    // Listen for visual viewport changes (modern approach)
+    if (window.visualViewport) {
+      window.visualViewport.addEventListener('resize', handleResize);
+    } else {
+      // Fallback for older browsers
+      window.addEventListener('resize', handleResize);
+    }
+
+    return () => {
+      if (window.visualViewport) {
+        window.visualViewport.removeEventListener('resize', handleResize);
+      } else {
+        window.removeEventListener('resize', handleResize);
+      }
+    };
+  }, [])
+
+  // Prevent body scroll when chat is open (mobile only)
+  useEffect(() => {
+    const isMobile = window.innerWidth < 640;
+    
+    if (openChat && isMobile) {
+      // Prevent body scroll on mobile only
+      document.body.style.overflow = 'hidden';
+      document.body.style.position = 'fixed';
+      document.body.style.width = '100%';
+    } else {
+      // Restore body scroll
+      document.body.style.overflow = '';
+      document.body.style.position = '';
+      document.body.style.width = '';
+    }
+
+    return () => {
+      // Cleanup on unmount
+      document.body.style.overflow = '';
+      document.body.style.position = '';
+      document.body.style.width = '';
+    };
+  }, [openChat])
+
+
+  // Handle chat open/close
+  const handleChatToggle = (open: boolean) => {
+    setOpenChat(open)
+  }
 
   const filtered = useMemo(() => {
     if (!q.trim()) return sims
@@ -67,7 +130,7 @@ export default function SimulateClient ({ sims }: { sims: SimRow[] }) {
           initial={{ opacity: 0, y: 14 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5 }}
-          className='rounded-3xl p-6 text-center'
+          className='rounded-3xl py-6 text-center'
         >
           <motion.h1
             initial={{ opacity: 0, y: 8 }}
@@ -87,13 +150,17 @@ export default function SimulateClient ({ sims }: { sims: SimRow[] }) {
             Pick a field, try a short interactive challenge, and see if it
             sparks your interest.
           </motion.p>
+        </motion.div>
+      </section>
 
-          {/* Search */}
-          <motion.div
+      {/* Grid */}
+      <section className='mx-auto w-full max-w-6xl px-6 pb-24 pt-8'>
+                  {/* Search */}
+                  <motion.div
             initial={{ opacity: 0, y: 8 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.18, duration: 0.5 }}
-            className='mx-auto mt-5 flex w-full max-w-2xl flex-col gap-3 sm:flex-row sm:items-center sm:justify-center'
+            className='mx-auto mb-5 flex w-full max-w-6xl flex-col gap-3 sm:flex-row sm:items-center sm:justify-center'
           >
             <div className='relative w-full'>
               <Search className='pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground' />
@@ -101,15 +168,11 @@ export default function SimulateClient ({ sims }: { sims: SimRow[] }) {
                 value={q}
                 onChange={e => setQ(e.target.value)}
                 placeholder='Search roles (e.g., Marketing)'
-                className='h-11 pl-9'
+                className='h-11 pl-9 focus-visible:ring-1 focus-visible:ring-primary focus-visible:border-foreground/10'
               />
             </div>
           </motion.div>
-        </motion.div>
-      </section>
 
-      {/* Grid */}
-      <section className='mx-auto w-full max-w-6xl px-6 pb-24 pt-8'>
         {filtered.length > 0 ? (
           <motion.div
             initial='hidden'
@@ -167,7 +230,7 @@ export default function SimulateClient ({ sims }: { sims: SimRow[] }) {
       </section>
 
 {/* Floating chat launcher */}
-<div className="fixed bottom-6 right-6 z-[60]">
+<div className="fixed bottom-[10px] right-[10px] z-[60]">
   <AnimatePresence>
     {!openChat && (
       <motion.button
@@ -176,8 +239,8 @@ export default function SimulateClient ({ sims }: { sims: SimRow[] }) {
         animate={{ opacity: 1, y: 0, scale: 1 }}
         exit={{ opacity: 0, y: 8, scale: 0.95 }}
         transition={{ duration: 0.2 }}
-        onClick={() => setOpenChat(true)}
-        className="group flex items-center gap-2 rounded-full bg-primary px-4 py-3 text-primary-foreground shadow-lg hover:bg-primary/90 focus:outline-none focus:ring-2 focus:ring-ring"
+        onClick={() => handleChatToggle(true)}
+        className="group flex items-center gap-2 rounded-full bg-primary w-[48px] h-[48px] sm:w-auto sm:h-auto sm:px-4 sm:py-3 text-primary-foreground shadow-lg hover:bg-primary/90 focus:outline-none focus:ring-2 focus:ring-ring justify-center"
         aria-label="Open career assistant chat"
       >
         <MessageCircle className="h-5 w-5" />
@@ -186,60 +249,84 @@ export default function SimulateClient ({ sims }: { sims: SimRow[] }) {
     )}
   </AnimatePresence>
 
-  {/* Chat panel */}
-  <AnimatePresence>
-    {openChat && (
-      <motion.div
-        key="panel"
-        initial={{ opacity: 0, y: 20, scale: 0.98 }}
-        animate={{ opacity: 1, y: 0, scale: 1 }}
-        exit={{ opacity: 0, y: 12, scale: 0.98 }}
-        transition={{ duration: 0.2 }}
-        // ✅ Responsive width + height that always fit the screen
-        className="
-          fixed z-[70]
-          bottom-[max(1rem,env(safe-area-inset-bottom))]
-          right-[max(1rem,env(safe-area-inset-right))]
-          w-[min(92vw,520px)]
-          h-[min(90dvh,880px)]
-          sm:h-[min(86dvh,760px)]
-          overflow-hidden
-          rounded-2xl border border-foreground/10 bg-background/95 shadow-2xl backdrop-blur-sm
-          flex flex-col
-        "
-        role="dialog"
-        aria-label="Career discovery chat"
+  {/* Chat panel - Always rendered but hidden when closed */}
+  <motion.div
+    key="panel"
+    initial={false}
+    animate={{ 
+      opacity: openChat ? 1 : 0,
+      y: openChat ? 0 : 20,
+      scale: openChat ? 1 : 0.98,
+      pointerEvents: openChat ? 'auto' : 'none'
+    }}
+    transition={{ duration: 0.2 }}
+    // ✅ Responsive width + height that always fit the screen
+    className="
+      fixed z-[70]
+      bottom-[max(1rem,env(safe-area-inset-bottom))]
+      left-[max(1rem,env(safe-area-inset-left))]
+      right-[max(1rem,env(safe-area-inset-right))]
+      sm:left-auto sm:right-[max(1rem,env(safe-area-inset-right))]
+      w-auto
+      sm:w-[min(92vw,520px)]
+      h-[min(90dvh,880px)]
+      sm:h-[min(86dvh,760px)]
+      overflow-hidden
+      rounded-2xl border border-foreground/10 bg-background/95 shadow-2xl backdrop-blur-sm
+      flex flex-col
+      mx-auto
+      sm:mx-0
+      max-w-[520px]
+      sm:bottom-[max(1rem,env(safe-area-inset-bottom))]
+      transition-all duration-300 ease-in-out
+    "
+    style={{
+      // On mobile, position above keyboard when it's open
+      bottom: keyboardHeight > 0 
+        ? `${Math.max(16, keyboardHeight + 16)}px` 
+        : undefined
+    }}
+    role="dialog"
+    aria-label="Career discovery chat"
+    onTouchStart={(e) => window.innerWidth < 640 && e.stopPropagation()}
+    onTouchMove={(e) => window.innerWidth < 640 && e.stopPropagation()}
+    onTouchEnd={(e) => window.innerWidth < 640 && e.stopPropagation()}
+  >
+    {/* Header (fixed) */}
+    <div className="flex items-center justify-between gap-3 border-b border-foreground/10 bg-foreground/5 px-4 py-2">
+      <div className="flex items-center gap-2">
+        <div className="flex h-7 w-7 items-center justify-center rounded-full bg-primary text-primary-foreground text-xs font-semibold">
+          L
+        </div>
+        <div>
+          <div className="text-sm font-semibold leading-tight">Leaply</div>
+          <div className="text-[11px] text-muted-foreground">Your Personal Career Assistant</div>
+        </div>
+      </div>
+      <button
+        onClick={() => handleChatToggle(false)}
+        className="rounded-md p-1 text-muted-foreground hover:bg-foreground/10"
+        aria-label="Close chat"
       >
-        {/* Header (fixed) */}
-        <div className="flex items-center justify-between gap-3 border-b border-foreground/10 bg-foreground/5 px-4 py-2">
-          <div className="flex items-center gap-2">
-            <div className="flex h-7 w-7 items-center justify-center rounded-full bg-primary text-primary-foreground text-xs font-semibold">
-              L
-            </div>
-            <div>
-              <div className="text-sm font-semibold leading-tight">Leaply</div>
-              <div className="text-[11px] text-muted-foreground">Your Personal Career Assistant</div>
-            </div>
-          </div>
-          <button
-            onClick={() => setOpenChat(false)}
-            className="rounded-md p-1 text-muted-foreground hover:bg-foreground/10"
-            aria-label="Close chat"
-          >
-            <X className="h-4 w-4" />
-          </button>
-        </div>
+        <X className="h-4 w-4" />
+      </button>
+    </div>
 
-        {/* Body (fills the rest; lets the chat control its internal scroll) */}
-        <div className="flex-1 min-h-0 px-2 py-2">
-          {/* 👇 Hide the “Skip and view all roles” from the floating panel */}
-          <div className="h-full">
-            <CareerDiscoveryChat embed hideSkip />
-          </div>
-        </div>
-      </motion.div>
-    )}
-  </AnimatePresence>
+    {/* Body (fills the rest; lets the chat control its internal scroll) */}
+    <div className="flex-1 min-h-0 px-2 py-2">
+      {/* 👇 Hide the "Skip and view all roles" from the floating panel */}
+      <div className="h-full">
+        <CareerDiscoveryChat 
+          embed 
+          hideSkip 
+          onStateChange={(state) => {
+            // Save state whenever it changes
+            sessionStorage.setItem('chatState', JSON.stringify(state))
+          }}
+        />
+      </div>
+    </div>
+  </motion.div>
 </div>
 
       </main>
