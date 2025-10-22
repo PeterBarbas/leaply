@@ -66,6 +66,7 @@ export default function CareerDiscoveryChat({
   // Now the SCROLL is only on the messages area (not around the composer)
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const inputRef = useRef<HTMLInputElement | null>(null);
+  const [keyboardHeight, setKeyboardHeight] = useState(0);
 
   useEffect(() => {
     const el = scrollRef.current;
@@ -75,6 +76,51 @@ export default function CareerDiscoveryChat({
       if (nearBottom) el.scrollTo({ top: el.scrollHeight, behavior: 'smooth' });
     });
   }, [messages, pending, bootTyping, currentQ]);
+
+  // Handle mobile keyboard visibility
+  useEffect(() => {
+    const handleResize = () => {
+      // Detect keyboard by comparing window height with visual viewport
+      if (window.visualViewport) {
+        const heightDiff = window.innerHeight - window.visualViewport.height;
+        setKeyboardHeight(Math.max(0, heightDiff));
+      } else {
+        // Fallback for browsers without visual viewport API
+        const initialHeight = window.innerHeight;
+        const currentHeight = window.screen.height;
+        setKeyboardHeight(Math.max(0, initialHeight - currentHeight));
+      }
+    };
+
+    // Listen for visual viewport changes (modern approach)
+    if (window.visualViewport) {
+      window.visualViewport.addEventListener('resize', handleResize);
+    } else {
+      // Fallback for older browsers
+      window.addEventListener('resize', handleResize);
+    }
+
+    return () => {
+      if (window.visualViewport) {
+        window.visualViewport.removeEventListener('resize', handleResize);
+      } else {
+        window.removeEventListener('resize', handleResize);
+      }
+    };
+  }, []);
+
+  // Scroll to input when keyboard opens
+  useEffect(() => {
+    if (keyboardHeight > 0 && inputRef.current) {
+      // Small delay to ensure keyboard is fully open
+      setTimeout(() => {
+        inputRef.current?.scrollIntoView({ 
+          behavior: 'smooth', 
+          block: 'center' 
+        });
+      }, 100);
+    }
+  }, [keyboardHeight]);
 
   useEffect(() => {
     setMessages([
@@ -226,16 +272,20 @@ export default function CareerDiscoveryChat({
     'space-y-3',
   ].join(' ');
 
-  // For dedicated page with fixed height, clamp the frame
+  // For dedicated page with fixed height, use stable height that doesn't change with mobile browser toolbar
   const frameStyle: React.CSSProperties | undefined = fixedHeight
-    ? { height: 'calc(100dvh - 340px)' }
+    ? { 
+        height: '100%',
+        maxHeight: '100%',
+        minHeight: '420px'
+      }
     : undefined;
 
   return (
     <div className={wrapperClass}>
       {/* hide the top utility link in embed/panel */}
       {!embed && (
-        <div className="mb-1 mr-2">
+        <div className="mb-3 mr-2">
           <div className="flex items-end justify-end text-xs text-muted-foreground">
             {!hideSkip && (
               <a href="/simulate" className="hover:text-foreground">
@@ -341,17 +391,23 @@ export default function CareerDiscoveryChat({
         </div>
 
         {/* Composer (always at bottom of the frame) */}
-        <div className="px-2 sm:px-2 pt-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] rounded-b-2xl border-t border-foreground/10 bg-background/70 backdrop-blur">
+        <div 
+          className="px-2 sm:px-2 pt-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] rounded-b-2xl border-t border-foreground/10 bg-background/70 backdrop-blur mobile-input-container"
+          style={{
+            // Adjust padding bottom when keyboard is open
+            paddingBottom: keyboardHeight > 0 ? '0.5rem' : undefined
+          }}
+        >
           {result ? (
-            <div className="flex flex-wrap items-center gap-3">
+            <div className="flex flex-col sm:flex-row sm:flex-wrap items-center gap-3">
               {result.status === 'supported' && result.slug ? (
                 <>
-                  <Button asChild className="px-6">
-                    <a href={`/s/${result.slug}`}>Try the {result.role} simulation</a>
+                  <Button asChild className="w-full sm:w-auto px-6 py-3 h-auto min-h-[44px] whitespace-normal text-center leading-tight">
+                    <a href={`/s/${result.slug}`} className="block w-full">Try the {result.role} simulation</a>
                   </Button>
                   {!hideSkip && !embed && (
                     <a
-                      className="text-sm text-muted-foreground underline underline-offset-4"
+                      className="text-sm text-muted-foreground underline underline-offset-4 pb-3 sm:pb-0"
                       href="/simulate"
                     >
                       Or view all roles
@@ -360,10 +416,10 @@ export default function CareerDiscoveryChat({
                 </>
               ) : (
                 <>
-                  <Button asChild className="px-6">
-                    <a href="/simulate">Explore corporate roles</a>
+                  <Button asChild className="w-full sm:w-auto px-6 py-3 h-auto min-h-[44px] whitespace-normal text-center leading-tight">
+                    <a href="/simulate" className="block w-full">Explore corporate roles</a>
                   </Button>
-                  <span className="text-sm text-muted-foreground">We’ll expand to more paths soon 🚀</span>
+                  <span className="text-sm text-muted-foreground">We'll expand to more paths soon 🚀</span>
                 </>
               )}
             </div>
@@ -384,6 +440,15 @@ export default function CareerDiscoveryChat({
                     ? currentQ.placeholder || 'Type your answer…'
                     : 'Waiting for question…'
                 }
+                onFocus={() => {
+                  // Ensure input is visible when focused
+                  setTimeout(() => {
+                    inputRef.current?.scrollIntoView({ 
+                      behavior: 'smooth', 
+                      block: 'center' 
+                    });
+                  }, 300); // Delay to allow keyboard to open
+                }}
                 onKeyDown={(e) => {
                   if (e.key === 'Enter' && !e.shiftKey) {
                     e.preventDefault();

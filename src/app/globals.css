@@ -50,3 +50,42 @@
   * { @apply border-border; }            /* now valid */
   body { @apply bg-background text-foreground; }
 }
+
+/* Mobile viewport height fixes */
+@layer utilities {
+  /* Prevent mobile browser toolbar from affecting layout */
+  .mobile-safe-height {
+    height: 100vh;
+    height: 100dvh; /* Use dynamic viewport height when supported */
+  }
+  
+  /* Stable height that doesn't change with mobile browser toolbar */
+  .stable-mobile-height {
+    height: 100vh; /* Use static viewport height for stability */
+  }
+  
+  /* Prevent zoom on input focus on iOS */
+  @media screen and (max-width: 768px) {
+    input[type="text"],
+    input[type="email"],
+    input[type="password"],
+    textarea,
+    select {
+      font-size: 16px !important;
+    }
+    
+    /* Improve mobile keyboard behavior */
+    .mobile-keyboard-safe {
+      position: relative;
+      z-index: 1;
+    }
+    
+    /* Ensure input stays above keyboard */
+    .mobile-input-container {
+      position: sticky;
+      bottom: 0;
+      background: inherit;
+      z-index: 10;
+    }
+  }
+}
