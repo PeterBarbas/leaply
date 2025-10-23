@@ -265,7 +265,7 @@ export default function SimulateClient ({ sims }: { sims: SimRow[] }) {
     }}
         // ✅ Responsive width + height that always fit the screen
         className="
-          fixed z-[70]
+          fixed z-[1000000000000]
           inset-0
           sm:bottom-[max(1rem,env(safe-area-inset-bottom))]
           sm:left-auto sm:right-[max(1rem,env(safe-area-inset-right))]
