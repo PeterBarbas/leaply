@@ -283,7 +283,10 @@ export default function SimulateClient ({ sims }: { sims: SimRow[] }) {
           transform-gpu
           will-change-transform
         "
-        style={{}}
+        style={{
+          // Ensure proper positioning on mobile
+          height: '100dvh', // Use dynamic viewport height for better mobile support
+        }}
         role="dialog"
         aria-label="Career discovery chat"
         onTouchStart={(e) => window.innerWidth < 640 && e.stopPropagation()}
@@ -292,10 +295,16 @@ export default function SimulateClient ({ sims }: { sims: SimRow[] }) {
       >
         {/* Header (fixed) */}
         <motion.div 
-          className="flex items-center justify-between gap-3 border-b border-foreground/10 bg-foreground/5 px-4 py-2"
+          className="flex items-center justify-between gap-3 border-b border-foreground/10 bg-foreground/5 px-4 py-2 flex-shrink-0"
           initial={{ opacity: 0, y: -10 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.1, duration: 0.3, ease: "easeOut" }}
+          style={{
+            // Ensure header stays at top on mobile
+            position: 'sticky',
+            top: 0,
+            zIndex: 10,
+          }}
         >
           <div className="flex items-center gap-2">
             <div className="flex h-7 w-7 items-center justify-center rounded-full bg-primary text-primary-foreground text-xs font-semibold">
@@ -320,13 +329,13 @@ export default function SimulateClient ({ sims }: { sims: SimRow[] }) {
 
         {/* Body (fills the rest; lets the chat control its internal scroll) */}
         <motion.div 
-          className="flex-1 min-h-0 px-2 py-2"
+          className="flex-1 min-h-0 flex flex-col"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ delay: 0.2, duration: 0.3, ease: "easeOut" }}
         >
           {/* 👇 Hide the "Skip and view all roles" from the floating panel */}
-          <div className="h-full">
+          <div className="h-full flex flex-col">
             <CareerDiscoveryChat 
               embed 
               hideSkip 

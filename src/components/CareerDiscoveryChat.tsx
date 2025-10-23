@@ -444,6 +444,10 @@ export default function CareerDiscoveryChat({
           transform-gpu
           will-change-transform
         "
+        style={{
+          // Ensure proper positioning on mobile
+          height: '100dvh', // Use dynamic viewport height for better mobile support
+        }}
         role="dialog"
         aria-label="Career discovery chat"
         onTouchStart={(e) => window.innerWidth < 640 && e.stopPropagation()}
@@ -452,10 +456,16 @@ export default function CareerDiscoveryChat({
       >
         {/* Header (fixed) */}
         <motion.div 
-          className="flex items-center justify-between gap-3 border-b border-foreground/10 bg-foreground/5 px-4 py-2"
+          className="flex items-center justify-between gap-3 border-b border-foreground/10 bg-foreground/5 px-4 py-2 flex-shrink-0"
           initial={{ opacity: 0, y: -10 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.1, duration: 0.3, ease: "easeOut" }}
+          style={{
+            // Ensure header stays at top on mobile
+            position: 'sticky',
+            top: 0,
+            zIndex: 10,
+          }}
         >
           <div className="flex items-center gap-2">
             <div className="flex h-7 w-7 items-center justify-center rounded-full bg-primary text-primary-foreground text-xs font-semibold">
@@ -480,16 +490,24 @@ export default function CareerDiscoveryChat({
 
         {/* Body (fills the rest; lets the chat control its internal scroll) */}
         <motion.div 
-          className="flex-1 min-h-0 px-2 py-2"
+          className="flex-1 min-h-0 flex flex-col"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ delay: 0.2, duration: 0.3, ease: "easeOut" }}
         >
-          <div className="h-full">
+          <div className="h-full flex flex-col">
             {/* Regular chat content */}
             <div className="h-full flex flex-col">
               {/* Messages */}
-              <div ref={fullscreenScrollRef} className="flex-1 min-h-0 overflow-y-auto px-3 sm:px-3 py-2 space-y-3 overscroll-behavior-contain scroll-smooth touch-pan-y">
+              <div 
+                ref={fullscreenScrollRef} 
+                className="flex-1 min-h-0 overflow-y-auto px-3 sm:px-3 py-2 space-y-3 overscroll-behavior-contain scroll-smooth touch-pan-y"
+                style={{
+                  // Ensure proper scrolling on mobile
+                  WebkitOverflowScrolling: 'touch',
+                  scrollBehavior: 'smooth',
+                }}
+              >
                 {messages.map((m, i) => {
                   const tail = showAvatarFor(i);
                   return (
@@ -579,12 +597,14 @@ export default function CareerDiscoveryChat({
 
               {/* Composer (always at bottom of the frame) */}
               <div 
-                className="px-2 sm:px-2 pt-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] border-t border-foreground/10 bg-background/70 backdrop-blur mobile-input-container relative z-10"
+                className="px-2 sm:px-2 pt-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] border-t border-foreground/10 bg-background/70 backdrop-blur mobile-input-container flex-shrink-0"
                 style={{
                   // Adjust padding bottom when keyboard is open
                   paddingBottom: keyboardHeight > 0 ? '0.5rem' : undefined,
                   // Ensure stable positioning on mobile
-                  position: 'relative',
+                  position: 'sticky',
+                  bottom: 0,
+                  zIndex: 10,
                   transform: 'translateZ(0)', // Force hardware acceleration
                 }}
               >
