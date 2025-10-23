@@ -1,6 +1,27 @@
 // src/lib/career/discover.ts
 import { openai, OPENAI_MODEL } from "@/lib/openai";
 
+// Simple in-memory cache for prompt responses (in production, use Redis or similar)
+const promptCache = new Map<string, any>();
+const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+
+function getCacheKey(prefix: string, data: any): string {
+  return `${prefix}:${JSON.stringify(data)}`;
+}
+
+function getCachedResponse(key: string): any | null {
+  const cached = promptCache.get(key);
+  if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
+    return cached.data;
+  }
+  promptCache.delete(key);
+  return null;
+}
+
+function setCachedResponse(key: string, data: any): void {
+  promptCache.set(key, { data, timestamp: Date.now() });
+}
+
 const SUPPORTED_ROLES = [
   "Marketing",
   "Social Media Management",
@@ -38,66 +59,82 @@ export type SupportedRole = (typeof SUPPORTED_ROLES)[number];
 export type QA = { q: string; a: string };
 
 export async function getNextAction(qas: QA[]) {
+  // Check cache first for identical Q&A sequences
+  const cacheKey = getCacheKey('discovery', qas);
+  const cached = getCachedResponse(cacheKey);
+  if (cached) {
+    return cached;
+  }
+
   const SYSTEM = `
-You are a structured career discovery assistant for a platform offering realistic corporate career simulations.
+  You are an expert, bias-aware career discovery counselor for a platform that offers realistic **corporate** career simulations.
+  
+  ## Mission
+  Guide any user—from “no idea what to study/work on” to a mid-career professional seeking a 180° pivot—to **exactly ONE** best-fit role from:
+  ${SUPPORTED_ROLES.join(", ")}.
+  
+  ## Guardrails
+  - Corporate scope only. If the user's target is non-corporate (e.g., medicine, culinary, sports, trades, performing arts, education), return \\"unsupported\\" with 3 practical tips for that path.
+  - Be warm, direct, non-judgmental, and inclusive. Avoid assumptions based on demographics.
+  
+  ## Conversation Strategy (dynamic, adaptive, and concise)
+  Ask **one** question at a time. Use natural language. Reference prior answers. Stop early if confidence ≥ 0.85. Otherwise ask up to **10** total (typical 4–7):
+  1) **Interests / Energy** — what they enjoy, curious about, or hate doing.
+  2) **Work Style** — solo vs. collaborative, structured vs. fluid, fast-paced vs. steady.
+  3) **Cognitive Preference** — people / data / ideas / things; creative vs. analytical vs. operational.
+  4) **Skills & Experience** — strongest skills (tech, writing, analysis, organizing), tools they’ve used, self-rated comfort with numbers/data.
+  5) **Constraints & Goals** — target salary band (qualitative), learning commitment (none / short course / degree), time horizon (immediate / 6–12m / 1–2y), remote vs. on-site preference, industry interest, geography/visa limits if mentioned.
+  6) **Switch Readiness** (for pivots) — tolerance for entry-level reset, willingness to build portfolio/projects, appetite for certification/bootcamp.
+  
+  Only ask what’s still unknown or ambiguous. Never repeat questions.
+  
+  ## Matching Intelligence
+  Score roles on:
+  - Interests fit (40%)
+  - Work style fit (25%)
+  - Skills/experience & transferability (25%)
+  - Constraints alignment (10%) — pace, learning tolerance, salary direction, remote/on-site hints
+  
+  Compute a **confidence** ∈ [0,1]. Prefer matches that minimize leap size unless the user explicitly wants a big switch.
+  
+  **Transferable skill heuristics (examples):**
+  - PM/Program/Project Mgmt → Planning, stakeholder comms, prioritization → Product Mgmt, Operations, CS, Strategy
+  - Software Eng → Systems thinking, problem solving → Data Eng, QA, DevOps, Product (technical)
+  - Design → Research, prototyping, storytelling → Product, Marketing, Content
+  - Sales/CS → Discovery, persuasion, relationship mgmt → Marketing, Recruiting, Ops
+  
+  **Normalization examples:**
+  - "PM" → "Product Management"
+  - "Data scientist/analytics" → map to "Data & Analytics" unless ML research is clearly implied → "Data Science"
+  - "Dev", "frontend", "backend" → map to the exact listed roles
+  
+  ## Non-Corporate Detection
+  If the dominant path is non-corporate, return "unsupported" with 3 concrete tips (courses, communities, first steps). Encourage, don’t block.
+  
+  ## Output (STRICT JSON ONLY)
+  When asking next question:
+  {
+    "action": "ask",
+    "question": "string"
+  }
+  
+  When recommending:
+  {
+    "action": "recommend",
+    "status": "supported" | "unsupported",
+    "role_title"?: "string",
+    "rationale": "Brief bullet-like reasoning in 3–6 semicolon-separated points",
+    "confidence"?: number,
+    "message_if_unsupported"?: "string with 3 numbered, actionable tips"
+  }
+  
+  ## Quality
+  - Friendly, plain language. No jargon unless user shows it.
+  - One JSON object only. No extra text.
+  - Keep questions short, concrete, and easy to answer.
+  - If user is stuck, offer **2–4 concise examples** inside the question to help them reply.
+  `.trim();  
 
-Your objective:
-Ask targeted, conversational follow-up questions to understand the user’s interests, skills, and work preferences, then recommend exactly ONE suitable corporate role from this predefined list:
-${SUPPORTED_ROLES.join(", ")}.
-
----
-
-### Behavior Rules
-1. **Conversational flow**
-   - Ask only one concise follow-up question at a time (no compound questions).
-   - Ask up to 8 questions total maximum.
-   - Stop early if your confidence ≥ 0.75 in a clear career match.
-
-2. **Corporate vs. Non-Corporate**
-   - If the user’s interests point outside corporate domains (e.g., sports, culinary, arts, healthcare, medicine, performing arts, trades, etc.),
-     → return an "unsupported" result.
-     Include a short encouraging message with 3 specific, actionable tips to explore that path (e.g., suggested resources, experiences, or next steps).
-
-3. **Corporate path**
-   - If the user fits within the corporate domain, return a "supported" result with:
-     - "role_title": exactly one from the supported list (normalize close synonyms to the nearest list item)
-     - "rationale": two short, clear sentences explaining why
-     - "confidence": float between 0.0 and 1.0
-
-4. **Question generation**
-   - Follow-up questions should be specific, natural, and relevant (e.g., focus on preferences like teamwork vs. autonomy, creativity vs. analysis, leadership vs. support, etc.).
-   - Never list multiple questions or options in one turn.
-   - Avoid restating previous answers.
-
----
-
-### Response Format
-
-Return **strict JSON only** in one of the following formats — no additional text or commentary:
-
-**When asking a question:**
-{
-  "action": "ask",
-  "question": "string"
-}
-
-**When ready to recommend:**
-{
-  "action": "recommend",
-  "status": "supported" | "unsupported",
-  "role_title"?: "string",
-  "rationale": "string",
-  "confidence"?: number,
-  "message_if_unsupported"?: "string"
-}
-
----
-
-### Example summary
-
-- Keep tone professional but friendly (e.g., “Interesting! What kind of projects do you enjoy most?”).
-- Always respond with one clear JSON object only.
-`.trim();
 
   const user = {
     answers: qas.map((x, i) => ({ index: i, question: x.q, answer: x.a })),
@@ -110,11 +147,12 @@ Return **strict JSON only** in one of the following formats — no additional te
       { role: "user", content: JSON.stringify(user) },
     ],
     response_format: { type: "json_object" },
-    temperature: 0.3,
+    temperature: 0.2, 
+    top_p: 0.9
   });
 
   const json = JSON.parse(resp.choices[0].message.content || "{}");
-  return json as
+  const result = json as
     | { action: "ask"; question: string }
     | {
         action: "recommend";
@@ -124,36 +162,40 @@ Return **strict JSON only** in one of the following formats — no additional te
         confidence?: number;
         message_if_unsupported?: string;
       };
+  
+  // Cache the result
+  setCachedResponse(cacheKey, result);
+  return result;
 }
 
 export async function generateRoleInformation(roleTitle: string) {
+  // Check cache first for role information
+  const cacheKey = getCacheKey('role-info', roleTitle);
+  const cached = getCachedResponse(cacheKey);
+  if (cached) {
+    return cached;
+  }
+
   const SYSTEM = `
-You are a career information expert. Generate comprehensive, engaging information about the role: ${roleTitle}.
-
-Create detailed, accurate, and interesting content that would help someone understand this career path. Include real industry insights, current trends, and practical information.
-
-Return STRICT JSON with this exact structure:
-{
-  "overview": "2-3 sentence description of what this role does and its importance",
-  "funFacts": ["5 interesting, surprising, or little-known facts about this role/industry"],
-  "skillsNeeded": ["6-8 key skills required for this role"],
-  "careerPath": ["3-4 typical career progression paths with job titles"],
-  "salaryRange": "Realistic salary range for this role (e.g., '$50,000 - $120,000+')",
-  "dailyTasks": ["5-6 typical daily activities for this role"],
-  "industries": ["6-8 industries where this role is common"],
-  "growthOutlook": "1-2 sentences about job market growth and future prospects",
-  "education": "1-2 sentences about typical education requirements and alternatives",
-  "personalityTraits": ["5 personality traits that suit this role well"]
-}
-
-RULES:
-- Make content engaging and informative
-- Use current, accurate information
-- Keep fun facts surprising but true
-- Make career paths realistic and specific
-- Include diverse industries where applicable
-- Be encouraging but realistic about growth prospects
-`.trim();
+  You are a senior career advisor and industry expert specializing in the requested role. Create clear, current, global-friendly content (assume 2025). If salary varies, note it succinctly by region or experience band.
+  
+  Return STRICT JSON:
+  {
+    "overview": "2–3 sentences on what the role does and why it matters now",
+    "careerPath": ["3–4 realistic progressions with typical timelines"],
+    "salaryRange": "Realistic 2025 ranges; note region/level caveats (e.g., 'Entry EU: €X–€Y; US mid: $A–$B')",
+    "industries": ["6–8 varied industries hiring this role"],
+    "growthOutlook": "1–2 sentences on demand/trends/automation impact",
+    "education": "Typical education + credible alternative paths (bootcamp, certs, projects)",
+    "personalityTraits": ["5 traits correlated with success"]
+  }
+  
+  Standards:
+  - Be practical and specific (tools, deliverables, stakeholders).
+  - Keep claims reasonable and non-sensational.
+  - Avoid country-specific jargon; explain briefly when needed.
+  `.trim();
+  
 
   const resp = await openai.chat.completions.create({
     model: OPENAI_MODEL,
@@ -165,10 +207,10 @@ RULES:
       },
     ],
     response_format: { type: "json_object" },
-    temperature: 0.6,
+    temperature: 0.5,
   });
 
-  return JSON.parse(resp.choices[0].message.content || "{}") as {
+  const result = JSON.parse(resp.choices[0].message.content || "{}") as {
     overview: string;
     funFacts: string[];
     skillsNeeded: string[];
@@ -180,9 +222,20 @@ RULES:
     education: string;
     personalityTraits: string[];
   };
+  
+  // Cache the result
+  setCachedResponse(cacheKey, result);
+  return result;
 }
 
 export async function generateSimulationSpec(roleTitle: string) {
+  // Check cache first for simulation specs
+  const cacheKey = getCacheKey('sim-spec', roleTitle);
+  const cached = getCachedResponse(cacheKey);
+  if (cached) {
+    return cached;
+  }
+
   // Utility to create clean kebab-case slugs
   const kebab = (s: string) =>
     s
@@ -191,47 +244,51 @@ export async function generateSimulationSpec(roleTitle: string) {
       .replace(/[^a-z0-9]+/g, "-")
       .replace(/^-+|-+$/g, "");
 
-  const SYSTEM = `
-You generate highly specific, **text-only** corporate simulation specs for the role: ${roleTitle}.
-
-**Naming requirements (MANDATORY):**
-- "title" MUST be the "${roleTitle}
-- "slug_suggestion" MUST be "${kebab(roleTitle)}
-- Every step's "role" MUST equal "${roleTitle}".
-
-Each simulation must contain exactly **4–5 atomic** day-to-day micro-tasks that take ~5–10 minutes each. You MUST generate at least 4 tasks, preferably 5.
-
-Atomic means a single concrete action with explicit constraints (length/format/count/metric) and a tiny deliverable.
-Examples:
-- "Write a 120-character slogan for a running shoe launch targeting runners 25–40."
-- "Find the bug in this JS line \`console.log("The sum is: " + 5 + 3);\`, output the corrected line and a 1-sentence reason."
-- "Write one INVEST user story with exactly 3 acceptance criteria using Given/When/Then."
-
-STRICT JSON:
-{
-  "title": "string",              // MUST start with "${roleTitle}: "
-  "slug_suggestion": "kebab-case",// MUST start with "${kebab(roleTitle)}-"
-  "rubric": ["3-6 short criteria"],
-  "steps": [
-    {
-      "index": 0,
-      "kind": "task",
-      "role": "${roleTitle}",
-      "title": "Start with an imperative verb and be specific",
-      "summary_md": "**Your task:** ...\\n\\n**Goal** ...\\n\\n**Context** ...\\n\\n**Constraints** ... (must include explicit length or count)\\n\\n**Deliverable** ...\\n\\n**Tips** ...",
-      "hint_md": "1-2 concrete sentences",
-      "expected_input": { "type": "text", "placeholder": "Write your attempt…" }
-    }
-  ]
-}
-
-RULES:
-- Plain text only (Markdown ok). Inline code in backticks is allowed, but no images, no tables.
-- Every task must include Goal, Context, Constraints, Deliverable, Tips.
-- Constraints must be explicit (e.g., "exactly 3 bullets", "<= 120 characters", "1 sentence rationale").
-- Prefer realistic corporate scenarios for ${roleTitle}.
-- Avoid vague phrasing like "Create an MVP" or "Do research".
-`.trim();
+      const SYSTEM = `
+      You are a senior ${roleTitle} practitioner and simulation designer. Produce **text-only**, highly specific, realistic simulation specs.
+      
+      **NAMING (MANDATORY):**
+      - "title" starts with "${roleTitle}: "
+      - "slug_suggestion" starts with "${kebab(roleTitle)}-"
+      - Every step's "role" is "${roleTitle}"
+      
+      **Design:**
+      - Exactly **4–5 atomic micro-tasks** (each 5–10 minutes).
+      - Realistic, scoped, verifiable. No vague research tasks.
+      - Progression: fundamentals → synthesis → stakeholder comms → decision/tradeoff.
+      - Include constraints that force clarity (word/char limits, formats, data points, recipients).
+      
+      **Each task includes:**
+      - **Goal** — what to achieve
+      - **Context** — realistic scenario
+      - **Constraints** — explicit limits (e.g., max 120 words, CSV header fixed, audience = VP, deadline = today 5pm)
+      - **Deliverable** — exact output
+      - **Tips** — helpful, not revealing the answer
+      
+      **STRICT JSON:**
+      {
+        "title": "string",
+        "slug_suggestion": "kebab-case",
+        "rubric": ["3–6 specific criteria tied to the role's core skills"],
+        "steps": [
+          {
+            "index": 0,
+            "kind": "task",
+            "role": "${roleTitle}",
+            "title": "Imperative, concrete task title",
+            "summary_md": "**Your task:** …\\n\\n**Goal:** …\\n\\n**Context:** …\\n\\n**Constraints:** …\\n\\n**Deliverable:** …\\n\\n**Tips:** …",
+            "hint_md": "1–2 sentences that nudge without giving away the answer",
+            "expected_input": { "type": "text", "placeholder": "Write your attempt…" }
+          }
+        ]
+      }
+      
+      **Quality bar:**
+      - Use credible corporate scenarios and up-to-date practices.
+      - Make each task independently checkable against the rubric.
+      - Prefer concrete artifacts (bullet list, brief email, user story, SQL WHERE clause, acceptance criteria).
+      `.trim();
+      
 
   const resp = await openai.chat.completions.create({
     model: OPENAI_MODEL,
@@ -273,5 +330,7 @@ RULES:
     }));
   }
 
+  // Cache the result
+  setCachedResponse(cacheKey, spec);
   return spec;
 }
