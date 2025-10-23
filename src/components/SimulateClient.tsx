@@ -222,7 +222,7 @@ export default function SimulateClient ({ sims }: { sims: SimRow[] }) {
       </section>
 
 {/* Floating chat launcher */}
-<div className="fixed bottom-[10px] right-[10px] z-[60]">
+<div className="fixed bottom-[10px] right-[10px] z-[10000000000000]">
   <AnimatePresence>
     {!openChat && (
       <motion.button
