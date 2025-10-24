@@ -62,7 +62,7 @@ export async function GET() {
           completedAt: completedAttempts.map(a => a.completed_at).sort().reverse()[0] // Most recent completion
         };
       })
-      .filter(Boolean) // Remove null entries
+      .filter((entry): entry is NonNullable<typeof entry> => entry !== null) // Remove null entries with proper type guard
       .sort((a, b) => {
         // Primary sort: leaderboard score (descending)
         if (b.leaderboardScore !== a.leaderboardScore) {
