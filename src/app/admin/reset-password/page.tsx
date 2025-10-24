@@ -1,13 +1,13 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card'
 import { Shield, AlertCircle, CheckCircle, Lock } from 'lucide-react'
 
-export default function ResetPassword() {
+function ResetPasswordForm() {
   const [newPassword, setNewPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
   const [loading, setLoading] = useState(false)
@@ -204,5 +204,13 @@ export default function ResetPassword() {
         </CardContent>
       </Card>
     </div>
+  )
+}
+
+export default function ResetPassword() {
+  return (
+    <Suspense fallback={<div className="flex items-center justify-center min-h-screen">Loading...</div>}>
+      <ResetPasswordForm />
+    </Suspense>
   )
 }
