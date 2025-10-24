@@ -272,21 +272,17 @@ export default function SimulateClient ({ sims }: { sims: SimRow[] }) {
           sm:inset-auto
           w-auto
           sm:w-[min(92vw,520px)]
-          h-auto
-          sm:h-[min(86dvh,760px)]
+          h-screen
+          sm:h-[min(75vh,500px)]
           overflow-hidden
           rounded-none sm:rounded-2xl border border-foreground/10 bg-background/95 shadow-2xl backdrop-blur-sm
           flex flex-col
           mx-auto
           sm:mx-0
-          max-w-[520px]
+          max-w-[400px]
           transform-gpu
           will-change-transform
         "
-        style={{
-          // Ensure proper positioning on mobile
-          height: '100dvh', // Use dynamic viewport height for better mobile support
-        }}
         role="dialog"
         aria-label="Career discovery chat"
         onTouchStart={(e) => window.innerWidth < 640 && e.stopPropagation()}
