@@ -60,7 +60,7 @@ export async function GET() {
           .eq("attempt_id", attempt.id);
 
         const completedTasks = completedSteps?.map(step => step.step_index) || [];
-        const totalTasks = attempt.simulations?.steps?.length || 0;
+        const totalTasks = attempt.simulations?.[0]?.steps?.length || 0;
         const progressPercentage = totalTasks > 0 ? Math.round((completedTasks.length / totalTasks) * 100) : 0;
 
         return {
