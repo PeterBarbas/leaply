@@ -226,20 +226,20 @@ export default function TaskPageClient({
     
     setLoading(prev => ({ ...prev, finish: false }));
     
-    // Navigate back to overview
-    router.push(`/s/${sim.slug}/overview?attemptId=${attemptId}`);
+    // Navigate back to main simulation page
+    router.push(`/s/${sim.slug}?attemptId=${attemptId}`);
   };
 
   return (
     <div className="mx-auto max-w-4xl px-6 py-10">
-      {/* Back Button - Left aligned like overview */}
+      {/* Back Button */}
       <div className="mb-6">
         <Link
-          href={`/s/${sim.slug}/overview?attemptId=${attemptId}`}
+          href={`/s/${sim.slug}?attemptId=${attemptId}`}
           className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
         >
           <ArrowLeft className="h-4 w-4" />
-          Back to overview
+          Back to simulation
         </Link>
       </div>
 

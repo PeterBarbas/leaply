@@ -46,8 +46,8 @@ export default function SimulationStarter({ simulationSlug }: { simulationSlug: 
       setLoading(true);
       setError(null);
 
-      // Redirect directly to the overview page - it will create the attempt automatically
-      router.push(`/s/${simulationSlug}/overview`);
+      // Redirect directly to the main simulation page - it will create the attempt automatically
+      router.push(`/s/${simulationSlug}`);
     } catch (e: any) {
       setError(e.message || "Something went wrong");
     } finally {
@@ -60,11 +60,11 @@ export default function SimulationStarter({ simulationSlug }: { simulationSlug: 
       setLoading(true);
       setError(null);
 
-      // Redirect to overview page with existing attemptId
+      // Redirect to main simulation page with existing attemptId
       if (progress?.attemptId) {
-        router.push(`/s/${simulationSlug}/overview?attemptId=${progress.attemptId}`);
+        router.push(`/s/${simulationSlug}?attemptId=${progress.attemptId}`);
       } else {
-        router.push(`/s/${simulationSlug}/overview`);
+        router.push(`/s/${simulationSlug}`);
       }
     } catch (e: any) {
       setError(e.message || "Something went wrong");
@@ -78,9 +78,9 @@ export default function SimulationStarter({ simulationSlug }: { simulationSlug: 
       setLoading(true);
       setError(null);
 
-      // Redirect to overview page to view completed simulation
+      // Redirect to main simulation page to view completed simulation
       if (progress?.attemptId) {
-        router.push(`/s/${simulationSlug}/overview?attemptId=${progress.attemptId}`);
+        router.push(`/s/${simulationSlug}?attemptId=${progress.attemptId}`);
       }
     } catch (e: any) {
       setError(e.message || "Something went wrong");

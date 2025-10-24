@@ -1,13 +1,29 @@
 "use client";
 
+import { useState, useEffect } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
-import { ArrowLeft, TrendingUp, DollarSign, Users, BookOpen } from "lucide-react";
-import SimulationStarter from "@/components/SimulationStarter";
+import {
+  ArrowLeft,
+  TrendingUp,
+  DollarSign,
+  Users,
+  BookOpen,
+  CheckCircle,
+  Lock,
+  Play,
+  Target,
+  Mail,
+} from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
+import { useAuth } from "@/lib/auth";
 
 type Sim = {
+  id: string;
   slug: string;
   title: string;
   steps: any[] | null;
@@ -16,9 +32,298 @@ type Sim = {
   active: boolean;
 };
 
-export default function SimulationPageClient({ sim }: { sim: Sim }) {
-  const stepCount = Array.isArray(sim.steps) ? sim.steps.length : 0;
+type TaskStep = {
+  kind: "task";
+  index: number;
+  role?: string;
+  title: string;
+  summary_md?: string;
+  hint_md?: string;
+  resources?: Array<any>;
+  expected_input?: { type: "text"; placeholder?: string };
+  stage?: number;
+};
+
+export default function SimulationPageClient({
+  sim,
+  attemptId,
+  completedTasks = [],
+  userId,
+}: {
+  sim: Sim;
+  attemptId: string;
+  completedTasks?: number[];
+  userId?: string;
+}) {
+  const router = useRouter();
+  const { user } = useAuth();
+  const tasks = (sim.steps || []) as TaskStep[];
   const roleInfo = sim.role_info;
+
+  const [email, setEmail] = useState("");
+  const [emailLoading, setEmailLoading] = useState(false);
+  const [emailSent, setEmailSent] = useState(false);
+  const [emailError, setEmailError] = useState<string | null>(null);
+  const [localCompletedTasks, setLocalCompletedTasks] =
+    useState<number[]>(completedTasks);
+  const [activeTab, setActiveTab] = useState<"tasks" | "guide">("tasks");
+
+  const allTasksCompleted = localCompletedTasks.length === tasks.length;
+
+  // Session storage key for this simulation
+  const sessionKey = `simulation_progress_${sim.slug}`;
+
+  // Auto-send results to logged-in users when all tasks are completed
+  useEffect(() => {
+    if (allTasksCompleted && user && user.email && !emailSent && !emailLoading) {
+      handleAutoSendResults();
+    }
+  }, [allTasksCompleted, user, emailSent, emailLoading]);
+
+  const handleAutoSendResults = async () => {
+    if (!user?.email) return;
+
+    try {
+      setEmailLoading(true);
+      setEmailError(null);
+
+      const res = await fetch("/api/attempt/request-results", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ attemptId, email: user.email }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) throw new Error(data?.error || "Failed to send results");
+
+      setEmailSent(true);
+    } catch (e: any) {
+      setEmailError(e.message || "Failed to send results");
+    } finally {
+      setEmailLoading(false);
+    }
+  };
+
+  // Save progress to sessionStorage whenever completed tasks change
+  useEffect(() => {
+    const progressData = {
+      attemptId,
+      completedTasks: localCompletedTasks,
+      timestamp: Date.now(),
+      simulationSlug: sim.slug,
+      totalTasks: tasks.length,
+    };
+    sessionStorage.setItem(sessionKey, JSON.stringify(progressData));
+  }, [attemptId, localCompletedTasks, sessionKey, sim.slug, tasks.length]);
+
+  // Initialize with server data as source of truth
+  useEffect(() => {
+    setLocalCompletedTasks(completedTasks);
+
+    // Update sessionStorage to match server
+    const progressData = {
+      attemptId,
+      completedTasks,
+      timestamp: Date.now(),
+      simulationSlug: sim.slug,
+      totalTasks: tasks.length,
+    };
+    sessionStorage.setItem(sessionKey, JSON.stringify(progressData));
+  }, [attemptId, completedTasks, sessionKey, sim.slug, tasks.length]);
+
+  // Load progress from database for logged-in users
+  useEffect(() => {
+    if (userId && attemptId) {
+      const loadProgressFromDatabase = async () => {
+        try {
+          const response = await fetch(
+            `/api/attempt/progress?attemptId=${attemptId}`
+          );
+          if (response.ok) {
+            const data = await response.json();
+            setLocalCompletedTasks(data.completedTasks);
+
+            // Update sessionStorage to match database
+            const progressData = {
+              attemptId,
+              completedTasks: data.completedTasks,
+              timestamp: Date.now(),
+              simulationSlug: sim.slug,
+              totalTasks: tasks.length,
+            };
+            sessionStorage.setItem(sessionKey, JSON.stringify(progressData));
+          }
+        } catch (error) {
+          console.error("Failed to load progress from database:", error);
+        }
+      };
+
+      loadProgressFromDatabase();
+    }
+  }, [userId, attemptId, sessionKey, sim.slug, tasks.length]);
+
+  // Function to mark a task as completed (can be called from task pages)
+  const markTaskCompleted = (taskIndex: number) => {
+    if (!localCompletedTasks.includes(taskIndex)) {
+      setLocalCompletedTasks((prev) => [...prev, taskIndex]);
+    }
+  };
+
+  const handleEmailSubmit = async () => {
+    if (!email.trim()) return;
+
+    try {
+      setEmailLoading(true);
+      setEmailError(null);
+
+      const res = await fetch("/api/attempt/request-results", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ attemptId, email }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) throw new Error(data?.error || "Failed to send results");
+
+      setEmailSent(true);
+    } catch (e: any) {
+      setEmailError(e.message || "Failed to send results");
+    } finally {
+      setEmailLoading(false);
+    }
+  };
+
+  const handleStartTask = (taskIndex: number) => {
+    if (!attemptId) return;
+    const status = getTaskStatus(taskIndex);
+    // Don't allow clicking on completed or locked tasks
+    if (status === "completed" || status === "locked") return;
+    router.push(`/s/${sim.slug}/task/${taskIndex}?attemptId=${attemptId}`);
+  };
+
+  const getTaskStatus = (
+    index: number
+  ): "completed" | "available" | "current" | "locked" => {
+    if (localCompletedTasks.includes(index)) return "completed";
+
+    // First task is always available
+    if (index === 0) return "available";
+
+    // Task is available only if previous task is completed
+    if (localCompletedTasks.includes(index - 1)) return "available";
+
+    // Otherwise it's locked
+    return "locked";
+  };
+
+  const getTaskIcon = (index: number) => {
+    const status = getTaskStatus(index);
+    switch (status) {
+      case "completed":
+        return <CheckCircle className="h-6 w-6 text-green-500" />;
+      case "current":
+        return <Play className="h-6 w-6 text-blue-500" />;
+      case "locked":
+        return <Lock className="h-6 w-6 text-gray-400" />;
+      default:
+        return <Target className="h-6 w-6 text-gray-600" />;
+    }
+  };
+
+  const getTaskColor = (index: number) => {
+    const status = getTaskStatus(index);
+    const task = tasks[index];
+    const stage = task?.stage || 1;
+
+    const stageColors = {
+      1: {
+        // Easy - Blue
+        completed:
+          "bg-green-100 border-green-300 hover:bg-green-200 dark:bg-green-900/20 dark:border-green-700",
+        current:
+          "bg-blue-100 border-blue-300 hover:bg-blue-200 dark:bg-blue-900/20 dark:border-blue-700",
+        locked:
+          "bg-gray-100 border-gray-300 dark:bg-gray-800 dark:border-gray-600",
+        default:
+          "bg-blue-50 border-blue-200 hover:bg-blue-100 dark:bg-blue-900/10 dark:border-blue-700 dark:hover:bg-blue-900/20",
+      },
+      2: {
+        // Medium - Orange
+        completed:
+          "bg-green-100 border-green-300 hover:bg-green-200 dark:bg-green-900/20 dark:border-green-700",
+        current:
+          "bg-orange-100 border-orange-300 hover:bg-orange-200 dark:bg-orange-900/20 dark:border-orange-700",
+        locked:
+          "bg-gray-100 border-gray-300 dark:bg-gray-800 dark:border-gray-600",
+        default:
+          "bg-orange-50 border-orange-200 hover:bg-orange-100 dark:bg-orange-900/10 dark:border-orange-700 dark:hover:bg-orange-900/20",
+      },
+      3: {
+        // Hard - Red
+        completed:
+          "bg-green-100 border-green-300 hover:bg-green-200 dark:bg-green-900/20 dark:border-green-700",
+        current:
+          "bg-red-100 border-red-300 hover:bg-red-200 dark:bg-red-900/20 dark:border-red-700",
+        locked:
+          "bg-gray-100 border-gray-300 dark:bg-gray-800 dark:border-gray-600",
+        default:
+          "bg-red-50 border-red-200 hover:bg-red-100 dark:bg-red-900/10 dark:border-red-700 dark:hover:bg-red-900/20",
+      },
+    };
+
+    const colors =
+      stageColors[stage as keyof typeof stageColors] || stageColors[1];
+
+    switch (status) {
+      case "completed":
+        return colors.completed;
+      case "current":
+        return colors.current;
+      case "locked":
+        return colors.locked;
+      default:
+        return colors.default;
+    }
+  };
+
+  const getStageColor = (stage: number) => {
+    switch (stage) {
+      case 1:
+        return "text-blue-600 dark:text-blue-400";
+      case 2:
+        return "text-orange-600 dark:text-orange-400";
+      case 3:
+        return "text-red-600 dark:text-red-400";
+      default:
+        return "text-gray-600 dark:text-gray-400";
+    }
+  };
+
+  const getStageGradient = (stage: number) => {
+    switch (stage) {
+      case 1:
+        return "from-blue-400 via-blue-500 to-indigo-600";
+      case 2:
+        return "from-orange-400 via-orange-500 to-red-600";
+      case 3:
+        return "from-red-400 via-red-500 to-pink-600";
+      default:
+        return "from-gray-400 via-gray-500 to-gray-600";
+    }
+  };
+
+  const getStageIconColor = (stage: number) => {
+    switch (stage) {
+      case 1:
+        return "text-blue-500";
+      case 2:
+        return "text-orange-500";
+      case 3:
+        return "text-red-500";
+      default:
+        return "text-gray-500";
+    }
+  };
 
   // Fallback for simulations without role_info
   if (!roleInfo) {
@@ -44,7 +349,7 @@ export default function SimulationPageClient({ sim }: { sim: Sim }) {
             {sim.title}
           </h1>
           <p className="mt-3 text-base sm:text-lg text-muted-foreground">
-            {stepCount} short tasks · ~10 minutes total
+            {tasks.length} short tasks · ~10 minutes total
           </p>
         </motion.div>
 
@@ -56,13 +361,10 @@ export default function SimulationPageClient({ sim }: { sim: Sim }) {
         >
           <div className="prose prose-zinc dark:prose-invert max-w-none">
             <p>
-              You'll work through realistic, day-to-day tasks for this role. Each takes
-              about 5–10 minutes and includes hints, feedback, and a senior example.
+              You'll work through realistic, day-to-day tasks for this role. Each
+              takes about 5–10 minutes and includes hints, feedback, and a
+              senior example.
             </p>
-          </div>
-
-          <div className="mt-8">
-            <SimulationStarter simulationSlug={sim.slug} />
           </div>
         </motion.div>
       </div>
@@ -71,6 +373,7 @@ export default function SimulationPageClient({ sim }: { sim: Sim }) {
 
   return (
     <div className="mx-auto max-w-6xl px-6 py-10">
+      {/* Back Button */}
       <div className="mb-14">
         <Link
           href="/simulate"
@@ -81,250 +384,773 @@ export default function SimulationPageClient({ sim }: { sim: Sim }) {
         </Link>
       </div>
 
-      {/* Header Section */}
+      {/* Header */}
       <motion.div
-        initial={{ opacity: 0, y: 12 }}
+        initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5 }}
-        className="text-center mb-8"
+        className="text-center mb-12"
       >
         <h1 className="text-4xl sm:text-5xl font-bold tracking-tight text-foreground mb-4">
-          {sim.title}
+          Your Career Path
         </h1>
-        <p className="text-lg sm:text-xl text-muted-foreground mb-6">
-          {stepCount} tasks · 10 minutes total
+        <p className="text-lg text-muted-foreground mb-6">
+          Complete each task to fully understand the role.
         </p>
-        {roleInfo?.overview && (
-          <p className="text-lg text-foreground/80 max-w-3xl mx-auto leading-relaxed mb-8">
-            {roleInfo.overview}
-          </p>
-        )}
       </motion.div>
 
-      {/* Simulation Starter - Moved to top */}
+      {/* Tab Navigation */}
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.1, duration: 0.5 }}
-        className="rounded-2xl border border-border/60 bg-card/70 backdrop-blur-sm p-6 sm:p-8 shadow-sm mb-12"
+        className="flex justify-center mb-8"
       >
-        <div className="text-center mb-6">
-          <h2 className="text-2xl font-semibold mb-2">Ready to Experience This Role?</h2>
-          <p className="text-muted-foreground">
-            Work through realistic, day-to-day tasks for this role. Each takes about 5–10 minutes 
-            and includes hints, feedback, and a senior example.
-          </p>
+        <div className="flex bg-gray-100 dark:bg-gray-800 rounded-lg p-1">
+          <button
+            onClick={() => setActiveTab("tasks")}
+            className={`px-6 py-2 rounded-md text-sm font-medium transition-all ${
+              activeTab === "tasks"
+                ? "bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 shadow-sm"
+                : "text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100"
+            }`}
+          >
+            Tasks
+          </button>
+          <button
+            onClick={() => setActiveTab("guide")}
+            className={`px-6 py-2 rounded-md text-sm font-medium transition-all ${
+              activeTab === "guide"
+                ? "bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 shadow-sm"
+                : "text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100"
+            }`}
+          >
+            Guide
+          </button>
         </div>
-        <SimulationStarter simulationSlug={sim.slug} />
       </motion.div>
 
-      {/* Role Information Grid */}
-      {roleInfo && (
-        <div className="space-y-8 mb-12">
-          {/* Top Row - Career Path and Salary/Growth */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-            {/* Career Path */}
-            {roleInfo.careerPath && roleInfo.careerPath.length > 0 && (
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.2, duration: 0.5 }}
-              >
-                <Card className="h-full">
-                  <CardHeader>
-                    <CardTitle className="flex items-center gap-2">
-                      <TrendingUp className="h-5 w-5 text-green-500" />
-                      Career Path
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="relative">
-                      {/* Timeline */}
-                      <div className="absolute left-4 top-0 bottom-0 w-0.5 bg-gradient-to-b from-green-200 via-green-400 to-green-600"></div>
-                      
-                      <div className="space-y-4">
-                        {roleInfo.careerPath.map((path: string, index: number) => (
-                          <motion.div
-                            key={index}
-                            initial={{ opacity: 0, x: -20 }}
-                            animate={{ opacity: 1, x: 0 }}
-                            transition={{ delay: 0.3 + index * 0.1, duration: 0.4 }}
-                            className="relative flex items-start gap-4"
-                          >
-                            {/* Timeline Node */}
-                            <div className="relative z-10 flex-shrink-0">
-                              <div className={`
-                                w-8 h-8 rounded-full flex items-center justify-center text-white font-bold text-sm
-                                ${index === 0 
-                                  ? 'bg-gradient-to-br from-green-500 to-emerald-600 shadow-lg shadow-green-500/50' 
-                                  : index === roleInfo.careerPath.length - 1
-                                  ? 'bg-gradient-to-br from-purple-500 to-indigo-600 shadow-lg shadow-purple-500/50'
-                                  : 'bg-gradient-to-br from-blue-500 to-cyan-600 shadow-lg shadow-blue-500/50'
+      {/* Tab Content */}
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.2, duration: 0.5 }}
+      >
+        {activeTab === "tasks" ? (
+          /* Tasks Tab Content */
+          <div>
+            {/* Desktop: Horizontal Layout with Stages */}
+            <div className="hidden md:block relative w-full mx-auto mt-16 mb-10 px-6">
+              {[1, 2, 3].map((stageNumber) => {
+                const stageTasks = tasks.filter(
+                  (task) => (task.stage || 1) === stageNumber
+                );
+                if (stageTasks.length === 0) return null;
+
+                return (
+                  <div key={stageNumber} className="mb-16">
+                    {/* Stage Divider */}
+                    <div className="flex items-center justify-center mb-8">
+                      <div className="flex-1 h-px bg-gradient-to-r from-transparent via-gray-300 to-transparent" />
+                      <div className="mx-6 px-4 py-2 rounded-full bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 shadow-sm">
+                        <span
+                          className={`text-sm font-semibold ${getStageColor(
+                            stageNumber
+                          )}`}
+                        >
+                          Stage {stageNumber}
+                        </span>
+                      </div>
+                      <div className="flex-1 h-px bg-gradient-to-r from-transparent via-gray-300 to-transparent" />
+                    </div>
+
+                    {/* Stage Tasks - Alternating S Pattern */}
+                    <div className="relative py-8 overflow-x-auto">
+                      <div className="flex relative justify-center items-center gap-16 min-h-[200px]">
+                        {stageTasks.map((task, stageIndex) => {
+                          const index = tasks.indexOf(task);
+                          const status = getTaskStatus(index);
+                          const isCompleted = status === "completed";
+                          const isLocked = status === "locked";
+                          const isClickable = !isCompleted && !isLocked;
+
+                          const isInvertedS = stageNumber % 2 === 0;
+
+                          const totalTasks = stageTasks.length;
+                          const midPoint = (totalTasks - 1) / 2;
+                          const safeMid = midPoint === 0 ? 1 : midPoint; // avoid divide-by-zero
+                          const distanceFromMid = Math.abs(stageIndex - midPoint);
+                          const maxLift = isInvertedS ? -60 : 60;
+                          const lift = isInvertedS
+                            ? maxLift + (distanceFromMid / safeMid) * Math.abs(maxLift)
+                            : maxLift - (distanceFromMid / safeMid) * Math.abs(maxLift);
+
+                          return (
+                            <motion.div
+                              key={index}
+                              initial={{ opacity: 0, scale: 0.3, y: 20 }}
+                              animate={{ opacity: 1, scale: 1, y: lift }}
+                              transition={{
+                                delay: 0.3 + index * 0.1,
+                                duration: 0.6,
+                                type: "spring",
+                                stiffness: 260,
+                                damping: 20,
+                              }}
+                              className="relative flex flex-col items-center"
+                            >
+                              <motion.div
+                                whileHover={
+                                  isClickable
+                                    ? {
+                                        scale: 1.08,
+                                        y: -4,
+                                      }
+                                    : {}
                                 }
-                              `}>
-                                {index + 1}
-                              </div>
-                              {/* Glow effect for current role */}
-                              {index === 0 && (
-                                <motion.div
-                                  className="absolute inset-0 rounded-full bg-green-400/30 blur-md"
-                                  animate={{ scale: [1, 1.2, 1] }}
-                                  transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
-                                />
-                              )}
-                            </div>
-                            
-                            {/* Content */}
-                            <div className="flex-1 pt-1">
-                              <div className={`
-                                p-3 rounded-lg border transition-all duration-200 hover:shadow-md
-                                ${index === 0 
-                                  ? 'bg-gradient-to-r from-green-50 to-emerald-50 border-green-200 dark:from-green-950/20 dark:to-emerald-950/20 dark:border-green-800' 
-                                  : index === roleInfo.careerPath.length - 1
-                                  ? 'bg-gradient-to-r from-purple-50 to-indigo-50 border-purple-200 dark:from-purple-950/20 dark:to-indigo-950/20 dark:border-purple-800'
-                                  : 'bg-gradient-to-r from-blue-50 to-cyan-50 border-blue-200 dark:from-blue-950/20 dark:to-cyan-950/20 dark:border-blue-800'
-                                }
-                              `}>
-                                <p className={`
-                                  text-sm font-medium leading-relaxed
-                                  ${index === 0 
-                                    ? 'text-green-800 dark:text-green-200' 
-                                    : index === roleInfo.careerPath.length - 1
-                                    ? 'text-purple-800 dark:text-purple-200'
-                                    : 'text-blue-800 dark:text-blue-200'
-                                  }
-                                `}>
-                                  {path}
+                                whileTap={isClickable ? { scale: 0.95 } : {}}
+                                className="relative"
+                                onClick={() => handleStartTask(index)}
+                              >
+                                {/* Outer Glow Ring for Completed */}
+                                {isCompleted && (
+                                  <motion.div
+                                    className="absolute -inset-2 rounded-full bg-green-400/20 blur-lg"
+                                    animate={{
+                                      scale: [1, 1.15, 1],
+                                    }}
+                                    transition={{
+                                      duration: 2,
+                                      repeat: Infinity,
+                                      ease: "easeInOut",
+                                    }}
+                                  />
+                                )}
+
+                                {/* Main Task Circle */}
+                                <div
+                                  className={`relative w-24 h-24 rounded-full flex items-center justify-center transition-all duration-300 ${
+                                    isCompleted
+                                      ? "bg-gradient-to-br from-emerald-400 via-green-500 to-emerald-600 shadow-xl shadow-green-500/50"
+                                      : isLocked
+                                      ? "bg-gradient-to-br from-gray-300 via-gray-400 to-gray-500 shadow-lg opacity-60"
+                                      : `bg-gradient-to-br ${getStageGradient(
+                                          task.stage || 1
+                                        )} shadow-xl shadow-blue-500/50`
+                                  } ${
+                                    isClickable
+                                      ? "cursor-pointer hover:shadow-2xl"
+                                      : "cursor-not-allowed"
+                                  }`}
+                                >
+                                  {/* Inner White Circle */}
+                                  <div className="w-20 h-20 rounded-full flex items-center justify-center bg-white/95">
+                                    {/* Icon */}
+                                    <div
+                                      className={
+                                        isCompleted
+                                          ? "text-green-500"
+                                          : isLocked
+                                          ? "text-gray-400"
+                                          : getStageIconColor(task.stage || 1)
+                                      }
+                                    >
+                                      {isCompleted ? (
+                                        <motion.div
+                                          initial={{ scale: 0, rotate: -180 }}
+                                          animate={{ scale: 1, rotate: 0 }}
+                                          transition={{
+                                            type: "spring",
+                                            stiffness: 260,
+                                            damping: 20,
+                                            delay: 0.1,
+                                          }}
+                                        >
+                                          <CheckCircle className="h-10 w-10" />
+                                        </motion.div>
+                                      ) : isLocked ? (
+                                        <Lock className="h-9 w-9" />
+                                      ) : (
+                                        <motion.div
+                                          animate={{
+                                            y: [-2, 2, -2],
+                                          }}
+                                          transition={{
+                                            duration: 2,
+                                            repeat: Infinity,
+                                            ease: "easeInOut",
+                                          }}
+                                        >
+                                          <Play
+                                            className="h-9 w-9"
+                                            fill="currentColor"
+                                          />
+                                        </motion.div>
+                                      )}
+                                    </div>
+                                  </div>
+
+                                  {/* Task Number Badge - Bottom Center */}
+                                  <motion.div
+                                    initial={{ scale: 0 }}
+                                    animate={{ scale: 1 }}
+                                    transition={{
+                                      delay: 0.4 + index * 0.1,
+                                      type: "spring",
+                                    }}
+                                    className={`absolute -bottom-1 right-0 -translate-x-1/2 w-8 h-8 rounded-full flex items-center justify-center font-bold text-xs ${
+                                      isCompleted
+                                        ? "bg-gradient-to-br from-yellow-400 to-orange-500 text-white shadow-lg"
+                                        : isLocked
+                                        ? "bg-gradient-to-br from-gray-400 to-gray-500 text-white shadow-md"
+                                        : "bg-gradient-to-br from-purple-500 to-pink-500 text-white shadow-lg"
+                                    }`}
+                                  >
+                                    {index + 1}
+                                  </motion.div>
+                                </div>
+                              </motion.div>
+
+                              {/* Task Title - Below bubble */}
+                              <motion.div
+                                initial={{ opacity: 0, y: 10 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                transition={{ delay: 0.5 + index * 0.1 }}
+                                className="mt-3 text-center max-w-[120px]"
+                              >
+                                <p className="text-xs font-medium text-muted-foreground line-clamp-2">
+                                  {task.title || `Task ${index + 1}`}
                                 </p>
-                            
-                              </div>
-                            </div>
-                          </motion.div>
-                        ))}
+                              </motion.div>
+                            </motion.div>
+                          );
+                        })}
                       </div>
                     </div>
-                  </CardContent>
-                </Card>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Mobile: Vertical Layout with Stages */}
+            <div className="md:hidden relative w-full mx-auto mt-16 mb-10 px-6">
+              {[1, 2, 3].map((stageNumber) => {
+                const stageTasks = tasks.filter(
+                  (task) => (task.stage || 1) === stageNumber
+                );
+                if (stageTasks.length === 0) return null;
+
+                return (
+                  <div key={stageNumber} className="mb-12">
+                    {/* Stage Divider - Mobile */}
+                    <div className="flex items-center justify-center mb-6">
+                      <div className="flex-1 h-px bg-gradient-to-r from-transparent via-gray-300 to-transparent" />
+                      <div className="mx-4 px-3 py-1 rounded-full bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 shadow-sm">
+                        <span
+                          className={`text-xs font-semibold ${getStageColor(
+                            stageNumber
+                          )}`}
+                        >
+                          Stage {stageNumber}
+                        </span>
+                      </div>
+                      <div className="flex-1 h-px bg-gradient-to-r from-transparent via-gray-300 to-transparent" />
+                    </div>
+
+                    {/* Stage Tasks - Mobile with Alternating S Pattern */}
+                    <div className="relative py-6 min-h-[300px]">
+                      <div className="flex flex-col items-center gap-8">
+                        {stageTasks.map((task, stageIndex) => {
+                          const index = tasks.indexOf(task);
+                          const status = getTaskStatus(index);
+                          const isCompleted = status === "completed";
+                          const isLocked = status === "locked";
+                          const isClickable = !isCompleted && !isLocked;
+
+                          const isInvertedS = stageNumber % 2 === 0;
+
+                          const totalTasks = stageTasks.length;
+                          const midPoint = (totalTasks - 1) / 2;
+                          const safeMid = midPoint === 0 ? 1 : midPoint;
+                          const distanceFromMid = Math.abs(stageIndex - midPoint);
+                          const maxShift = isInvertedS ? -40 : 40;
+                          const shift = isInvertedS
+                            ? maxShift +
+                              (distanceFromMid / safeMid) * Math.abs(maxShift)
+                            : maxShift -
+                              (distanceFromMid / safeMid) * Math.abs(maxShift);
+
+                          return (
+                            <motion.div
+                              key={index}
+                              initial={{ opacity: 0, scale: 0.3, x: 20 }}
+                              animate={{ opacity: 1, scale: 1, x: shift }}
+                              transition={{
+                                delay: 0.3 + index * 0.1,
+                                duration: 0.6,
+                                type: "spring",
+                                stiffness: 260,
+                                damping: 20,
+                              }}
+                              className="relative flex flex-col items-center"
+                            >
+                              <motion.div
+                                whileHover={
+                                  isClickable
+                                    ? {
+                                        scale: 1.08,
+                                        y: -4,
+                                      }
+                                    : {}
+                                }
+                                whileTap={isClickable ? { scale: 0.95 } : {}}
+                                className="relative"
+                                onClick={() => handleStartTask(index)}
+                              >
+                                {/* Outer Glow Ring for Completed */}
+                                {isCompleted && (
+                                  <motion.div
+                                    className="absolute -inset-2 rounded-full bg-green-400/20 blur-lg"
+                                    animate={{
+                                      scale: [1, 1.15, 1],
+                                    }}
+                                    transition={{
+                                      duration: 2,
+                                      repeat: Infinity,
+                                      ease: "easeInOut",
+                                    }}
+                                  />
+                                )}
+
+                                {/* Main Task Circle - Smaller on mobile */}
+                                <div
+                                  className={`relative w-20 h-20 rounded-full flex items-center justify-center transition-all duration-300 ${
+                                    isCompleted
+                                      ? "bg-gradient-to-br from-emerald-400 via-green-500 to-emerald-600 shadow-xl shadow-green-500/50"
+                                      : isLocked
+                                      ? "bg-gradient-to-br from-gray-300 via-gray-400 to-gray-500 shadow-lg opacity-60"
+                                      : `bg-gradient-to-br ${getStageGradient(
+                                          task.stage || 1
+                                        )} shadow-xl shadow-blue-500/50`
+                                  } ${
+                                    isClickable
+                                      ? "cursor-pointer hover:shadow-2xl"
+                                      : "cursor-not-allowed"
+                                  }`}
+                                >
+                                  {/* Inner White Circle */}
+                                  <div className="w-16 h-16 rounded-full flex items-center justify-center bg-white/95">
+                                    {/* Icon */}
+                                    <div
+                                      className={
+                                        isCompleted
+                                          ? "text-green-500"
+                                          : isLocked
+                                          ? "text-gray-400"
+                                          : getStageIconColor(task.stage || 1)
+                                      }
+                                    >
+                                      {isCompleted ? (
+                                        <motion.div
+                                          initial={{ scale: 0, rotate: -180 }}
+                                          animate={{ scale: 1, rotate: 0 }}
+                                          transition={{
+                                            type: "spring",
+                                            stiffness: 260,
+                                            damping: 20,
+                                            delay: 0.1,
+                                          }}
+                                        >
+                                          <CheckCircle className="h-8 w-8" />
+                                        </motion.div>
+                                      ) : isLocked ? (
+                                        <Lock className="h-7 w-7" />
+                                      ) : (
+                                        <motion.div
+                                          animate={{
+                                            y: [-2, 2, -2],
+                                          }}
+                                          transition={{
+                                            duration: 2,
+                                            repeat: Infinity,
+                                            ease: "easeInOut",
+                                          }}
+                                        >
+                                          <Play
+                                            className="h-7 w-7"
+                                            fill="currentColor"
+                                          />
+                                        </motion.div>
+                                      )}
+                                    </div>
+                                  </div>
+
+                                  {/* Task Number Badge - Bottom Center */}
+                                  <motion.div
+                                    initial={{ scale: 0 }}
+                                    animate={{ scale: 1 }}
+                                    transition={{
+                                      delay: 0.4 + index * 0.1,
+                                      type: "spring",
+                                    }}
+                                    className={`absolute -bottom-1 right-0 -translate-x-1/2 w-7 h-7 rounded-full flex items-center justify-center font-bold text-xs ${
+                                      isCompleted
+                                        ? "bg-gradient-to-br from-yellow-400 to-orange-500 text-white shadow-lg"
+                                        : isLocked
+                                        ? "bg-gradient-to-br from-gray-400 to-gray-500 text-white shadow-md"
+                                        : "bg-gradient-to-br from-purple-500 to-pink-500 text-white shadow-lg"
+                                    }`}
+                                  >
+                                    {index + 1}
+                                  </motion.div>
+                                </div>
+                              </motion.div>
+
+                              {/* Task Title - Below bubble */}
+                              <motion.div
+                                initial={{ opacity: 0, y: 10 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                transition={{ delay: 0.5 + index * 0.1 }}
+                                className="mt-3 text-center max-w-[200px]"
+                              >
+                                <p className="text-sm font-medium text-muted-foreground line-clamp-2">
+                                  {task.title || `Task ${index + 1}`}
+                                </p>
+                              </motion.div>
+                            </motion.div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Completion Celebration */}
+            {allTasksCompleted && (
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.8, duration: 0.5 }}
+                className="mb-12"
+              >
+                <div className="max-w-2xl mx-auto rounded-2xl border-2 border-green-300 dark:border-green-700 bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-950/20 dark:to-emerald-950/20 p-8 shadow-lg">
+                  <div className="flex flex-col md:flex-row items-center gap-6">
+                    {/* Content */}
+                    <div className="flex-1 flex flex-col items-center text-center md:text-left">
+                      <h2 className="text-2xl font-bold text-green-800 dark:text-green-200 mb-1">
+                        All Tasks Complete!
+                      </h2>
+
+                      {user ? (
+                        <>
+                          <p className="text-green-700 dark:text-green-300 mb-4">
+                            Great job! Your results are being sent to your email automatically.
+                          </p>
+
+                          {emailLoading ? (
+                            <div className="flex items-center gap-2 text-green-700 dark:text-green-300">
+                              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-green-600" />
+                              <span className="font-medium">
+                                Sending results to {user.email}...
+                              </span>
+                            </div>
+                          ) : emailSent ? (
+                            <div className="flex items-center gap-2 text-green-700 dark:text-green-300">
+                              <Mail className="h-5 w-5" />
+                              <span className="font-medium">
+                                🚀 Results sent to {user.email}!
+                              </span>
+                            </div>
+                          ) : null}
+
+                          {emailError && (
+                            <p className="text-red-600 text-sm mt-2">{emailError}</p>
+                          )}
+                        </>
+                      ) : (
+                        <>
+                          <p className="text-green-700 dark:text-green-300 mb-4">
+                            Great job! Enter your email to receive your detailed results.
+                          </p>
+
+                          {!emailSent ? (
+                            <div className="flex flex-col sm:flex-row gap-2 w-full">
+                              <Input
+                                type="email"
+                                placeholder="your@email.com"
+                                value={email}
+                                onChange={(e) => setEmail(e.target.value)}
+                                className="flex-1 py-2 focus-visible:ring-0 focus-visible:ring-primary focus-visible:border-foreground/10"
+                              />
+                              <Button
+                                onClick={handleEmailSubmit}
+                                disabled={emailLoading || !email.trim()}
+                                className="bg-green-600 hover:bg-green-700 w-full sm:w-auto"
+                              >
+                                {emailLoading ? "Sending..." : "Send Results"}
+                              </Button>
+                            </div>
+                          ) : (
+                            <div className="flex items-center gap-2 text-green-700 dark:text-green-300">
+                              <span className="font-medium">
+                                🚀 Results sent to {email}!
+                              </span>
+                            </div>
+                          )}
+
+                          {emailError && (
+                            <p className="text-red-600 text-sm mt-2">{emailError}</p>
+                          )}
+                        </>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </motion.div>
+            )}
+          </div>
+        ) : (
+          /* Guide Tab Content - Role Information */
+          <div className="space-y-8">
+            {/* Role Overview */}
+            {roleInfo?.overview && (
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.1, duration: 0.5 }}
+                className="rounded-2xl border border-border/60 bg-card/70 backdrop-blur-sm p-6 sm:p-8 shadow-sm"
+              >
+                <h2 className="text-2xl font-semibold mb-4">About This Role</h2>
+                <p className="text-lg text-foreground/80 leading-relaxed">
+                  {roleInfo.overview}
+                </p>
               </motion.div>
             )}
 
-            {/* Salary & Growth */}
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.3, duration: 0.5 }}
-              className="space-y-4"
-            >
-              {roleInfo.salaryRange && (
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="flex items-center gap-2">
-                      <DollarSign className="h-5 w-5 text-emerald-500" />
-                      Salary Range
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <p className="text-2xl font-semibold text-emerald-600">{roleInfo.salaryRange}</p>
-                  </CardContent>
-                </Card>
+            {/* Top Row - Career Path and Salary/Growth */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+              {/* Career Path */}
+              {roleInfo.careerPath && roleInfo.careerPath.length > 0 && (
+                <motion.div
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.2, duration: 0.5 }}
+                >
+                  <Card className="h-full">
+                    <CardHeader>
+                      <CardTitle className="flex items-center gap-2">
+                        <TrendingUp className="h-5 w-5 text-green-500" />
+                        Career Path
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="relative">
+                        {/* Timeline */}
+                        <div className="absolute left-4 top-0 bottom-0 w-0.5 bg-gradient-to-b from-green-200 via-green-400 to-green-600" />
+                        <div className="space-y-4">
+                          {roleInfo.careerPath.map(
+                            (path: string, index: number) => (
+                              <motion.div
+                                key={index}
+                                initial={{ opacity: 0, x: -20 }}
+                                animate={{ opacity: 1, x: 0 }}
+                                transition={{
+                                  delay: 0.3 + index * 0.1,
+                                  duration: 0.4,
+                                }}
+                                className="relative flex items-start gap-4"
+                              >
+                                {/* Timeline Node */}
+                                <div className="relative z-10 flex-shrink-0">
+                                  <div
+                                    className={`w-8 h-8 rounded-full flex items-center justify-center text-white font-bold text-sm ${
+                                      index === 0
+                                        ? "bg-gradient-to-br from-green-500 to-emerald-600 shadow-lg shadow-green-500/50"
+                                        : index === roleInfo.careerPath.length - 1
+                                        ? "bg-gradient-to-br from-purple-500 to-indigo-600 shadow-lg shadow-purple-500/50"
+                                        : "bg-gradient-to-br from-blue-500 to-cyan-600 shadow-lg shadow-blue-500/50"
+                                    }`}
+                                  >
+                                    {index + 1}
+                                  </div>
+                                  {/* Glow effect for current role */}
+                                  {index === 0 && (
+                                    <motion.div
+                                      className="absolute inset-0 rounded-full bg-green-400/30 blur-md"
+                                      animate={{ scale: [1, 1.2, 1] }}
+                                      transition={{
+                                        duration: 2,
+                                        repeat: Infinity,
+                                        ease: "easeInOut",
+                                      }}
+                                    />
+                                  )}
+                                </div>
+
+                                {/* Content */}
+                                <div className="flex-1 pt-1">
+                                  <div
+                                    className={`p-3 rounded-lg border transition-all duration-200 hover:shadow-md ${
+                                      index === 0
+                                        ? "bg-gradient-to-r from-green-50 to-emerald-50 border-green-200 dark:from-green-950/20 dark:to-emerald-950/20 dark:border-green-800"
+                                        : index === roleInfo.careerPath.length - 1
+                                        ? "bg-gradient-to-r from-purple-50 to-indigo-50 border-purple-200 dark:from-purple-950/20 dark:to-indigo-950/20 dark:border-purple-800"
+                                        : "bg-gradient-to-r from-blue-50 to-cyan-50 border-blue-200 dark:from-blue-950/20 dark:to-cyan-950/20 dark:border-blue-800"
+                                    }`}
+                                  >
+                                    <p
+                                      className={`text-sm font-medium leading-relaxed ${
+                                        index === 0
+                                          ? "text-green-800 dark:text-green-200"
+                                          : index === roleInfo.careerPath.length - 1
+                                          ? "text-purple-800 dark:text-purple-200"
+                                          : "text-blue-800 dark:text-blue-200"
+                                      }`}
+                                    >
+                                      {path}
+                                    </p>
+                                  </div>
+                                </div>
+                              </motion.div>
+                            )
+                          )}
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </motion.div>
               )}
 
-              {roleInfo.growthOutlook && (
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="flex items-center gap-2">
-                      <TrendingUp className="h-5 w-5 text-purple-500" />
-                      Growth Outlook
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <p className="text-sm leading-relaxed">{roleInfo.growthOutlook}</p>
-                  </CardContent>
-                </Card>
+              {/* Salary & Growth */}
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.3, duration: 0.5 }}
+                className="space-y-4"
+              >
+                {roleInfo.salaryRange && (
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="flex items-center gap-2">
+                        <DollarSign className="h-5 w-5 text-emerald-500" />
+                        Salary Range
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <p className="text-2xl font-semibold text-emerald-600">
+                        {roleInfo.salaryRange}
+                      </p>
+                    </CardContent>
+                  </Card>
+                )}
+
+                {roleInfo.growthOutlook && (
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="flex items-center gap-2">
+                        <TrendingUp className="h-5 w-5 text-purple-500" />
+                        Growth Outlook
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <p className="text-sm leading-relaxed">
+                        {roleInfo.growthOutlook}
+                      </p>
+                    </CardContent>
+                  </Card>
+                )}
+              </motion.div>
+            </div>
+
+            {/* Bottom Row - Industries, Education, and Traits */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {/* Industries */}
+              {roleInfo.industries && roleInfo.industries.length > 0 && (
+                <motion.div
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.4, duration: 0.5 }}
+                >
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="flex items-center gap-2 text-base">
+                        <Users className="h-4 w-4 text-indigo-500" />
+                        Industries
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="flex flex-wrap gap-1">
+                        {roleInfo.industries.map(
+                          (industry: string, index: number) => (
+                            <Badge key={index} variant="outline" className="text-xs">
+                              {industry}
+                            </Badge>
+                          )
+                        )}
+                      </div>
+                    </CardContent>
+                  </Card>
+                </motion.div>
               )}
-            </motion.div>
+
+              {/* Education */}
+              {roleInfo.education && (
+                <motion.div
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.5, duration: 0.5 }}
+                >
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="flex items-center gap-2 text-base">
+                        <BookOpen className="h-4 w-4 text-teal-500" />
+                        Education
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <p className="text-sm leading-relaxed">
+                        {roleInfo.education}
+                      </p>
+                    </CardContent>
+                  </Card>
+                </motion.div>
+              )}
+
+              {/* Ideal Traits */}
+              {roleInfo.personalityTraits &&
+                roleInfo.personalityTraits.length > 0 && (
+                  <motion.div
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.6, duration: 0.5 }}
+                  >
+                    <Card>
+                      <CardHeader>
+                        <CardTitle className="flex items-center gap-2 text-base">
+                          <Users className="h-4 w-4 text-pink-500" />
+                          Ideal Traits
+                        </CardTitle>
+                      </CardHeader>
+                      <CardContent>
+                        <div className="flex flex-wrap gap-1">
+                          {roleInfo.personalityTraits.map(
+                            (trait: string, index: number) => (
+                              <Badge key={index} variant="secondary" className="text-xs">
+                                {trait}
+                              </Badge>
+                            )
+                          )}
+                        </div>
+                      </CardContent>
+                    </Card>
+                  </motion.div>
+                )}
+            </div>
           </div>
-
-          {/* Bottom Row - Industries, Education, and Traits */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {/* Industries */}
-            {roleInfo.industries && roleInfo.industries.length > 0 && (
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.4, duration: 0.5 }}
-              >
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="flex items-center gap-2 text-base">
-                      <Users className="h-4 w-4 text-indigo-500" />
-                      Industries
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="flex flex-wrap gap-1">
-                      {roleInfo.industries.map((industry: string, index: number) => (
-                        <Badge key={index} variant="outline" className="text-xs">
-                          {industry}
-                        </Badge>
-                      ))}
-                    </div>
-                  </CardContent>
-                </Card>
-              </motion.div>
-            )}
-
-            {/* Education */}
-            {roleInfo.education && (
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.5, duration: 0.5 }}
-              >
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="flex items-center gap-2 text-base">
-                      <BookOpen className="h-4 w-4 text-teal-500" />
-                      Education
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <p className="text-sm leading-relaxed">{roleInfo.education}</p>
-                  </CardContent>
-                </Card>
-              </motion.div>
-            )}
-
-            {/* Ideal Traits */}
-            {roleInfo.personalityTraits && roleInfo.personalityTraits.length > 0 && (
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.6, duration: 0.5 }}
-              >
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="flex items-center gap-2 text-base">
-                      <Users className="h-4 w-4 text-pink-500" />
-                      Ideal Traits
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="flex flex-wrap gap-1">
-                      {roleInfo.personalityTraits.map((trait: string, index: number) => (
-                        <Badge key={index} variant="secondary" className="text-xs">
-                          {trait}
-                        </Badge>
-                      ))}
-                    </div>
-                  </CardContent>
-                </Card>
-              </motion.div>
-            )}
-          </div>
-        </div>
-      )}
-
+        )}
+      </motion.div>
     </div>
   );
 }

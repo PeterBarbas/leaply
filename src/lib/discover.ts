@@ -253,9 +253,11 @@ export async function generateSimulationSpec(roleTitle: string) {
       - Every step's "role" is "${roleTitle}"
       
       **Design:**
-      - Exactly **4–5 atomic micro-tasks** (each 5–10 minutes).
+      - Exactly **15 atomic micro-tasks** organized into **3 stages of 5 tasks each** (each 5–10 minutes).
       - Realistic, scoped, verifiable. No vague research tasks.
-      - Progression: fundamentals → synthesis → stakeholder comms → decision/tradeoff.
+      - **Stage 1 (Easy)**: Fundamentals and basic concepts - entry-level tasks
+      - **Stage 2 (Medium)**: Intermediate skills and synthesis - mid-level tasks  
+      - **Stage 3 (Hard)**: Advanced scenarios and complex decisions - senior-level tasks
       - Include constraints that force clarity (word/char limits, formats, data points, recipients).
       
       **Each task includes:**
@@ -264,6 +266,7 @@ export async function generateSimulationSpec(roleTitle: string) {
       - **Constraints** — explicit limits (e.g., max 120 words, CSV header fixed, audience = VP, deadline = today 5pm)
       - **Deliverable** — exact output
       - **Tips** — helpful, not revealing the answer
+      - **stage** — which stage this task belongs to (1, 2, or 3)
       
       **STRICT JSON:**
       {
@@ -278,7 +281,8 @@ export async function generateSimulationSpec(roleTitle: string) {
             "title": "Imperative, concrete task title",
             "summary_md": "**Your task:** …\\n\\n**Goal:** …\\n\\n**Context:** …\\n\\n**Constraints:** …\\n\\n**Deliverable:** …\\n\\n**Tips:** …",
             "hint_md": "1–2 sentences that nudge without giving away the answer",
-            "expected_input": { "type": "text", "placeholder": "Write your attempt…" }
+            "expected_input": { "type": "text", "placeholder": "Write your attempt…" },
+            "stage": 1
           }
         ]
       }

@@ -46,11 +46,19 @@ export async function middleware(req: NextRequest) {
   // Protected routes that require authentication
   const protectedRoutes = ['/dashboard', '/profile']
   const authRoutes = ['/auth/signin', '/auth/signup']
+  const adminRoutes = ['/admin']
+  const adminAuthRoutes = ['/admin/signin']
 
   const isProtectedRoute = protectedRoutes.some(route => 
     req.nextUrl.pathname.startsWith(route)
   )
   const isAuthRoute = authRoutes.some(route => 
+    req.nextUrl.pathname.startsWith(route)
+  )
+  const isAdminRoute = adminRoutes.some(route => 
+    req.nextUrl.pathname.startsWith(route)
+  )
+  const isAdminAuthRoute = adminAuthRoutes.some(route => 
     req.nextUrl.pathname.startsWith(route)
   )
 
@@ -66,6 +74,13 @@ export async function middleware(req: NextRequest) {
   if (isAuthRoute && session) {
     console.log('Redirecting to profile - session exists for auth route')
     return NextResponse.redirect(new URL('/profile', req.url))
+  }
+
+  // Admin route protection - redirect to admin sign in if accessing admin routes
+  if (isAdminRoute && !isAdminAuthRoute) {
+    // Let the client-side authentication handle the redirect
+    // This ensures proper admin authentication flow
+    return response
   }
 
   return response

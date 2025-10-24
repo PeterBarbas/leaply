@@ -7,7 +7,8 @@ import { SignInSchema, type SignInData } from '@/lib/schemas'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Switch } from '@/components/ui/switch'
-import { Mail, Lock, AlertCircle } from 'lucide-react'
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
+import { Mail, Lock, AlertCircle, CheckCircle } from 'lucide-react'
 
 interface SignInFormProps {
   onSuccess?: () => void
@@ -19,6 +20,11 @@ export default function SignInForm({ onSuccess, onSwitchToSignUp }: SignInFormPr
   const { signIn } = useAuth()
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [forgotPasswordOpen, setForgotPasswordOpen] = useState(false)
+  const [forgotPasswordEmail, setForgotPasswordEmail] = useState('')
+  const [forgotPasswordLoading, setForgotPasswordLoading] = useState(false)
+  const [forgotPasswordError, setForgotPasswordError] = useState('')
+  const [forgotPasswordSuccess, setForgotPasswordSuccess] = useState(false)
   const [formData, setFormData] = useState<SignInData>({
     email: '',
     password: '',
@@ -61,6 +67,35 @@ export default function SignInForm({ onSuccess, onSwitchToSignUp }: SignInFormPr
     }
   }
 
+
+  const handleForgotPassword = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setForgotPasswordLoading(true)
+    setForgotPasswordError('')
+    setForgotPasswordSuccess(false)
+
+    try {
+      const response = await fetch('/api/auth/forgot-password', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ email: forgotPasswordEmail }),
+      })
+
+      const data = await response.json()
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to send reset email')
+      }
+
+      setForgotPasswordSuccess(true)
+    } catch (err: any) {
+      setForgotPasswordError(err.message || 'Failed to send reset email')
+    } finally {
+      setForgotPasswordLoading(false)
+    }
+  }
 
   const handleInputChange = (field: keyof SignInData, value: string | boolean) => {
     setFormData(prev => ({ ...prev, [field]: value }))
@@ -134,10 +169,7 @@ export default function SignInForm({ onSuccess, onSwitchToSignUp }: SignInFormPr
           <button
             type="button"
             className="text-sm text-primary hover:underline"
-            onClick={() => {
-              // TODO: Implement password reset
-              setError('Password reset not yet implemented')
-            }}
+            onClick={() => setForgotPasswordOpen(true)}
           >
             Forgot password?
           </button>
@@ -165,6 +197,68 @@ export default function SignInForm({ onSuccess, onSwitchToSignUp }: SignInFormPr
           </button>
         </p>
       )}
+
+      {/* Forgot Password Dialog */}
+      <Dialog open={forgotPasswordOpen} onOpenChange={setForgotPasswordOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Mail className="h-5 w-5" />
+              Reset Password
+            </DialogTitle>
+          </DialogHeader>
+          
+          {forgotPasswordSuccess ? (
+            <div className="space-y-4">
+              <div className="flex items-center gap-2 rounded-md bg-green-50 p-3 text-sm text-green-600">
+                <CheckCircle className="h-4 w-4" />
+                Reset instructions sent to your email
+              </div>
+              <p className="text-sm text-muted-foreground">
+                Check your email for password reset instructions. The link will expire in 1 hour.
+              </p>
+              <Button 
+                onClick={() => setForgotPasswordOpen(false)} 
+                className="w-full"
+              >
+                Close
+              </Button>
+            </div>
+          ) : (
+            <form onSubmit={handleForgotPassword} className="space-y-4">
+              <div className="space-y-2">
+                <label htmlFor="reset-email" className="text-sm font-medium">
+                  Email Address
+                </label>
+                <Input
+                  id="reset-email"
+                  type="email"
+                  placeholder="Enter your email"
+                  value={forgotPasswordEmail}
+                  onChange={(e) => setForgotPasswordEmail(e.target.value)}
+                  required
+                  disabled={forgotPasswordLoading}
+                />
+              </div>
+              
+              {forgotPasswordError && (
+                <div className="flex items-center gap-2 rounded-md bg-red-50 p-3 text-sm text-red-600">
+                  <AlertCircle className="h-4 w-4" />
+                  {forgotPasswordError}
+                </div>
+              )}
+
+              <Button 
+                type="submit" 
+                className="w-full" 
+                disabled={forgotPasswordLoading || !forgotPasswordEmail.trim()}
+              >
+                {forgotPasswordLoading ? 'Sending...' : 'Send Reset Email'}
+              </Button>
+            </form>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

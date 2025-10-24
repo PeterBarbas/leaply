@@ -15,6 +15,7 @@ interface AuthContextType {
   signIn: (email: string, password: string) => Promise<{ error: AuthError | null }>
   signOut: () => Promise<{ error: AuthError | null }>
   updateProfile: (updates: Partial<UserProfile>) => Promise<{ error: AuthError | null }>
+  updatePassword: (newPassword: string) => Promise<{ error: AuthError | null }>
   refreshProfile: () => Promise<void>
 }
 
@@ -254,6 +255,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }
 
+  const updatePassword = async (newPassword: string) => {
+    try {
+      const { error } = await supabaseAnon.auth.updateUser({
+        password: newPassword
+      })
+      return { error }
+    } catch (error) {
+      return { error: error as AuthError }
+    }
+  }
+
   const refreshProfile = async () => {
     if (user) {
       const userProfile = await fetchProfile(user.id)
@@ -270,6 +282,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     signIn,
     signOut,
     updateProfile,
+    updatePassword,
     refreshProfile,
   }
 

@@ -22,6 +22,7 @@ export const TaskStepSchema = z.object({
     type: z.literal("text"),
     placeholder: z.string().optional(),
   }).default({ type: "text", placeholder: "Write your attempt…" }),
+  stage: z.number().int().min(1).max(3).optional().default(1),
 });
 
 export type TaskStep = z.infer<typeof TaskStepSchema>;

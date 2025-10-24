@@ -179,6 +179,10 @@ function upgradeLegacy(step: RawStep, idx: number, role?: string): TaskStep {
     (typeof step?.label === "string" && step.label) ||
     `Task ${idx + 1}`;
   const { title, brief } = makeAtomicFromLabel(rawTitle, role, idx);
+  
+  // Determine stage based on task index (0-4 = stage 1, 5-9 = stage 2, 10-14 = stage 3)
+  const stage = Math.floor(idx / 5) + 1;
+  
   const base: TaskStep = {
     kind: "task",
     index: idx,
@@ -187,6 +191,7 @@ function upgradeLegacy(step: RawStep, idx: number, role?: string): TaskStep {
     summary_md: brief,
     expected_input: { type: "text", placeholder: "Write your attempt…" },
     hint_md: "Follow the constraint exactly and keep the output tight.",
+    stage: Math.min(stage, 3), // Ensure stage is between 1-3
   };
   return TaskStepSchema.parse(base);
 }

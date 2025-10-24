@@ -250,7 +250,7 @@ export default function UserSimulations() {
                       Try again
                     </Button>
                   )}
-                  <Link href={`/s/${simulation.simulations.slug}/overview?attemptId=${simulation.id}`}>
+                  <Link href={`/s/${simulation.simulations.slug}?attemptId=${simulation.id}`}>
                     <span className='inline-flex items-center gap-1 text-sm font-medium text-primary'>
                       {simulation.status === 'completed' ? 'View Results' : 'Continue'}
                       <ArrowRight className='h-4 w-4 transition-transform group-hover:translate-x-1' />
