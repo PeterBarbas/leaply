@@ -7,7 +7,7 @@ import { z } from "zod";
 const TrackActivitySchema = z.object({
   activityType: z.enum(['simulation_completed', 'simulation_started', 'login', 'discovery_session']),
   activityDate: z.string().optional(), // ISO date string, defaults to today
-  metadata: z.record(z.any()).optional()
+  metadata: z.record(z.string(), z.any()).optional()
 });
 
 export async function POST(req: Request) {
