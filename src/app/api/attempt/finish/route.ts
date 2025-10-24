@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { openai, OPENAI_MODEL } from "@/lib/openai";
-import { supabaseAdmin } from "@/lib/supabase";
+import { supabaseAdmin } from "@/lib/supabase-server";
 import { SYSTEM_SCORE } from "@/lib/prompts";
 
 const Body = z.object({
@@ -65,6 +65,20 @@ export async function POST(req: Request) {
         completed_at: new Date().toISOString(),
       })
       .eq("id", attemptId);
+
+      // 5️⃣ Track user activity for streak calculation
+    if (attempt.user_id) {
+      await supabaseAdmin.rpc('track_user_activity', {
+        p_user_id: attempt.user_id,
+        p_activity_type: 'simulation_completed',
+        p_activity_date: new Date().toISOString().split('T')[0],
+        p_metadata: {
+          simulation_id: attempt.simulation_id,
+          score: result.score,
+          attempt_id: attemptId
+        }
+      });
+    }
 
     return NextResponse.json(result);
   } catch (err: any) {

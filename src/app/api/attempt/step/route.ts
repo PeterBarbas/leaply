@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { openai, OPENAI_MODEL } from "@/lib/openai";
-import { supabaseAdmin } from "@/lib/supabase";
+import { supabaseAdmin } from "@/lib/supabase-server";
 import { SYSTEM_SIM } from "@/lib/prompts";
 
 const Body = z.object({

@@ -26,6 +26,51 @@ export const TaskStepSchema = z.object({
 
 export type TaskStep = z.infer<typeof TaskStepSchema>;
 
+// User authentication schemas
+export const SignUpSchema = z.object({
+  name: z.string().min(2, "Name must be at least 2 characters"),
+  email: z.string().email("Please enter a valid email address"),
+  password: z.string().min(8, "Password must be at least 8 characters"),
+  terms: z.boolean().refine(val => val === true, "You must accept the terms and conditions"),
+});
+
+export const SignInSchema = z.object({
+  email: z.string().email("Please enter a valid email address"),
+  password: z.string().min(1, "Password is required"),
+  rememberMe: z.boolean().optional(),
+});
+
+export const ProfileUpdateSchema = z.object({
+  name: z.string().min(2, "Name must be at least 2 characters").optional(),
+  country: z.string().optional(),
+  location: z.string().optional(),
+  website: z.string().url("Please enter a valid website URL").optional().or(z.literal("")),
+  avatar: z.enum(['avatar1', 'avatar2', 'avatar3', 'avatar4', 'avatar5']).optional(),
+  interests: z.array(z.string()).optional(),
+  bio: z.string().max(500, "Bio must be less than 500 characters").optional(),
+});
+
+export type SignUpData = z.infer<typeof SignUpSchema>;
+export type SignInData = z.infer<typeof SignInSchema>;
+export type ProfileUpdateData = z.infer<typeof ProfileUpdateSchema>;
+
+// User profile type
+export interface UserProfile {
+  id: string;
+  email: string;
+  name: string;
+  provider: 'email' | 'google' | 'apple';
+  photo_url?: string;
+  country?: string;
+  location?: string;
+  website?: string;
+  avatar?: 'avatar1' | 'avatar2' | 'avatar3' | 'avatar4' | 'avatar5';
+  interests?: string[];
+  bio?: string;
+  created_at: string;
+  updated_at: string;
+}
+
 export function looksVague(text = ""): boolean {
   const t = text.toLowerCase();
   const vaguePhrases = [

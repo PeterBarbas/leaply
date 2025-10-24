@@ -357,7 +357,7 @@ export default function CareerDiscoveryChat({
 
   // WRAPPER: full-height column so the composer is *always* at the bottom
   const wrapperClass = [
-    'mx-auto w-full max-w-2xl',
+    'mx-auto w-full',
     'h-full',
     'flex flex-col',
     embed ? 'min-h-0' : '',
@@ -396,7 +396,7 @@ export default function CareerDiscoveryChat({
     <>
       {/* hide the top utility link in embed/panel */}
       {!embed && (
-        <div className="mb-3 mr-2">
+        <div className="mb-3 mr-2 flex items-end justify-end">
           <div className="flex items-end justify-end text-xs text-muted-foreground">
             {!hideSkip && (
               <a href="/simulate" className="hover:text-foreground">

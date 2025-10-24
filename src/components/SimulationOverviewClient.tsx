@@ -9,6 +9,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import Link from "next/link";
+import { useAuth } from "@/lib/auth";
 
 type Sim = {
   slug: string;
@@ -33,13 +34,16 @@ type TaskStep = {
 export default function SimulationOverviewClient({ 
   sim, 
   attemptId, 
-  completedTasks = [] 
+  completedTasks = [],
+  userId
 }: { 
   sim: Sim; 
   attemptId: string; 
-  completedTasks?: number[] 
+  completedTasks?: number[];
+  userId?: string;
 }) {
   const router = useRouter();
+  const { user, profile } = useAuth();
   const tasks = (sim.steps || []) as TaskStep[];
   const [email, setEmail] = useState("");
   const [emailLoading, setEmailLoading] = useState(false);
@@ -51,6 +55,37 @@ export default function SimulationOverviewClient({
 
   // Session storage key for this simulation
   const sessionKey = `simulation_progress_${sim.slug}`;
+
+  // Auto-send results to logged-in users when all tasks are completed
+  useEffect(() => {
+    if (allTasksCompleted && user && user.email && !emailSent && !emailLoading) {
+      handleAutoSendResults();
+    }
+  }, [allTasksCompleted, user, emailSent, emailLoading]);
+
+  const handleAutoSendResults = async () => {
+    if (!user?.email) return;
+    
+    try {
+      setEmailLoading(true);
+      setEmailError(null);
+
+      const res = await fetch("/api/attempt/request-results", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ attemptId, email: user.email }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) throw new Error(data?.error || "Failed to send results");
+
+      setEmailSent(true);
+    } catch (e: any) {
+      setEmailError(e.message || "Failed to send results");
+    } finally {
+      setEmailLoading(false);
+    }
+  };
 
   // Save progress to sessionStorage whenever completed tasks change
   useEffect(() => {
@@ -80,6 +115,36 @@ export default function SimulationOverviewClient({
     };
     sessionStorage.setItem(sessionKey, JSON.stringify(progressData));
   }, [attemptId, completedTasks, sessionKey, sim.slug, tasks.length]);
+
+  // Load progress from database for logged-in users
+  useEffect(() => {
+    if (userId && attemptId) {
+      const loadProgressFromDatabase = async () => {
+        try {
+          const response = await fetch(`/api/attempt/progress?attemptId=${attemptId}`);
+          if (response.ok) {
+            const data = await response.json();
+            console.log('Database completed tasks:', data.completedTasks);
+            setLocalCompletedTasks(data.completedTasks);
+            
+            // Update sessionStorage to match database
+            const progressData = {
+              attemptId,
+              completedTasks: data.completedTasks,
+              timestamp: Date.now(),
+              simulationSlug: sim.slug,
+              totalTasks: tasks.length
+            };
+            sessionStorage.setItem(sessionKey, JSON.stringify(progressData));
+          }
+        } catch (error) {
+          console.error('Failed to load progress from database:', error);
+        }
+      };
+      
+      loadProgressFromDatabase();
+    }
+  }, [userId, attemptId, sessionKey, sim.slug, tasks.length]);
 
   // Function to mark a task as completed (can be called from task pages)
   const markTaskCompleted = (taskIndex: number) => {
@@ -507,35 +572,65 @@ export default function SimulationOverviewClient({
                 <h2 className="text-2xl font-bold text-green-800 dark:text-green-200 mb-1">
                   All Tasks Complete!
                 </h2>
-                <p className="text-green-700 dark:text-green-300 mb-4">
-                  Great job! Get your detailed results sent to your email.
-                </p>
-
-                {/* Email Form - Stacks on mobile */}
-                {!emailSent ? (
-                  <div className="flex flex-col sm:flex-row gap-2 w-full">
-                    <Input
-                      type="email"
-                      placeholder="your@email.com"
-                      value={email}
-                      onChange={(e) => setEmail(e.target.value)}
-                      className="flex-1 py-2 focus-visible:ring-0 focus-visible:ring-primary focus-visible:border-foreground/10"
-                    />
-                    <Button 
-                      onClick={handleEmailSubmit}
-                      disabled={emailLoading || !email.trim()}
-                      className="bg-green-600 hover:bg-green-700 w-full sm:w-auto"
-                    >
-                      {emailLoading ? "Sending..." : "Send Results"}
-                    </Button>
-                  </div>
+                
+                {user ? (
+                  // Logged-in user experience
+                  <>
+                    <p className="text-green-700 dark:text-green-300 mb-4">
+                      Great job! Your results are being sent to your email automatically.
+                    </p>
+                    
+                    {emailLoading ? (
+                      <div className="flex items-center gap-2 text-green-700 dark:text-green-300">
+                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-green-600"></div>
+                        <span className="font-medium">Sending results to {user.email}...</span>
+                      </div>
+                    ) : emailSent ? (
+                      <div className="flex items-center gap-2 text-green-700 dark:text-green-300">
+                        <Mail className="h-5 w-5" />
+                        <span className="font-medium">🚀 Results sent to {user.email}!</span>
+                      </div>
+                    ) : null}
+                    
+                    {emailError && (
+                      <p className="text-red-600 text-sm mt-2">{emailError}</p>
+                    )}
+                  </>
                 ) : (
-                  <div className="flex items-center gap-2 text-green-700 dark:text-green-300">
-                    <span className="font-medium">🚀 Results sent to {email}!</span>
-                  </div>
-                )}
-                {emailError && (
-                  <p className="text-red-600 text-sm mt-2">{emailError}</p>
+                  // Non-logged-in user experience
+                  <>
+                    <p className="text-green-700 dark:text-green-300 mb-4">
+                      Great job! Enter your email to receive your detailed results.
+                    </p>
+
+                    {/* Email Form - Stacks on mobile */}
+                    {!emailSent ? (
+                      <div className="flex flex-col sm:flex-row gap-2 w-full">
+                        <Input
+                          type="email"
+                          placeholder="your@email.com"
+                          value={email}
+                          onChange={(e) => setEmail(e.target.value)}
+                          className="flex-1 py-2 focus-visible:ring-0 focus-visible:ring-primary focus-visible:border-foreground/10"
+                        />
+                        <Button 
+                          onClick={handleEmailSubmit}
+                          disabled={emailLoading || !email.trim()}
+                          className="bg-green-600 hover:bg-green-700 w-full sm:w-auto"
+                        >
+                          {emailLoading ? "Sending..." : "Send Results"}
+                        </Button>
+                      </div>
+                    ) : (
+                      <div className="flex items-center gap-2 text-green-700 dark:text-green-300">
+                        <span className="font-medium">🚀 Results sent to {email}!</span>
+                      </div>
+                    )}
+
+                    {emailError && (
+                      <p className="text-red-600 text-sm mt-2">{emailError}</p>
+                    )}
+                  </>
                 )}
               </div>
             </div>

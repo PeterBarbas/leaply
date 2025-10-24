@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { supabaseAdmin, supabaseAnon } from "@/lib/supabase";
+import { supabaseAdmin } from "@/lib/supabase-server";
+import { supabaseAnon } from "@/lib/supabase";
 
 const Body = z.object({
   simulationSlug: z.string(),
@@ -49,18 +50,62 @@ export async function POST(req: Request) {
       userId = u?.id ?? null;
     }
 
-    // 3) Insert attempt (service role should bypass RLS)
-    const { data: attempt, error: aErr } = await supabaseAdmin
-      .from("attempts")
-      .insert({ user_id: userId, simulation_id: sim.id, status: "started" })
-      .select("id")
-      .single();
+    // 3) Check for existing attempt or create new one
+    let attemptId: string;
+    
+    if (userId) {
+      // Check for existing attempt first
+      const { data: existingAttempt } = await supabaseAdmin
+        .from("attempts")
+        .select("id")
+        .eq("simulation_id", sim.id)
+        .eq("user_id", userId)
+        .single();
 
-    if (aErr || !attempt) {
-      return NextResponse.json({ error: `Attempt insert failed: ${aErr?.message || "unknown"}` }, { status: 500 });
+      if (existingAttempt) {
+        attemptId = existingAttempt.id;
+      } else {
+        // Create new attempt
+        const { data: attempt, error: aErr } = await supabaseAdmin
+          .from("attempts")
+          .insert({ user_id: userId, simulation_id: sim.id, status: "started" })
+          .select("id")
+          .single();
+
+        if (aErr || !attempt) {
+          return NextResponse.json({ error: `Attempt insert failed: ${aErr?.message || "unknown"}` }, { status: 500 });
+        }
+        attemptId = attempt.id;
+      }
+    } else {
+      // For non-authenticated users, always create new attempt
+      const { data: attempt, error: aErr } = await supabaseAdmin
+        .from("attempts")
+        .insert({ user_id: null, simulation_id: sim.id, status: "started" })
+        .select("id")
+        .single();
+
+      if (aErr || !attempt) {
+        return NextResponse.json({ error: `Attempt insert failed: ${aErr?.message || "unknown"}` }, { status: 500 });
+      }
+      attemptId = attempt.id;
     }
 
-    return NextResponse.json({ attemptId: attempt.id, steps: sim.steps });
+    // 4️⃣ Track user activity for streak calculation (if user is logged in)
+    if (userId) {
+      await supabaseAdmin.rpc('track_user_activity', {
+        p_user_id: userId,
+        p_activity_type: 'simulation_started',
+        p_activity_date: new Date().toISOString().split('T')[0],
+        p_metadata: {
+          simulation_id: sim.id,
+          simulation_slug: simulationSlug,
+          attempt_id: attemptId
+        }
+      });
+    }
+
+    return NextResponse.json({ attemptId, steps: sim.steps });
   } catch (e: any) {
     return NextResponse.json({ error: e?.message || "Unhandled error" }, { status: 500 });
   }

@@ -3,18 +3,25 @@
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { useEffect, useRef, useState } from 'react'
-import { Menu, X } from 'lucide-react'
+import { Menu, X, User, LogOut, Settings } from 'lucide-react'
+import { useAuth } from '@/lib/auth'
+import { Button } from '@/components/ui/button'
+import { Card } from '@/components/ui/card'
+import { getAvatarEmoji } from '@/lib/avatarUtils'
+
+const navItems = [
+  { href: '/simulate', label: 'All Roles' },
+  { href: '/discover', label: 'Career Discovery Assistant' },
+]
 
 export default function Header() {
   const pathname = usePathname()
+  const { user, profile, signOut } = useAuth()
   const [open, setOpen] = useState(false)
+  const [userMenuOpen, setUserMenuOpen] = useState(false)
   const panelRef = useRef<HTMLDivElement | null>(null)
   const btnRef = useRef<HTMLButtonElement | null>(null)
-
-  const navItems = [
-    { href: '/simulate', label: 'All Roles' },
-    { href: '/discover', label: 'Career Discovery Assistant' },
-  ]
+  const userMenuRef = useRef<HTMLDivElement | null>(null)
 
   // Close the mobile menu on route change
   useEffect(() => {
@@ -24,7 +31,10 @@ export default function Header() {
   // Close on Escape and click outside
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
-      if (e.key === 'Escape') setOpen(false)
+      if (e.key === 'Escape') {
+        setOpen(false)
+        setUserMenuOpen(false)
+      }
     }
     function onClick(e: MouseEvent) {
       const target = e.target as Node
@@ -37,6 +47,13 @@ export default function Header() {
       ) {
         setOpen(false)
       }
+      if (
+        userMenuOpen &&
+        userMenuRef.current &&
+        !userMenuRef.current.contains(target)
+      ) {
+        setUserMenuOpen(false)
+      }
     }
     document.addEventListener('keydown', onKey)
     document.addEventListener('click', onClick)
@@ -44,7 +61,12 @@ export default function Header() {
       document.removeEventListener('keydown', onKey)
       document.removeEventListener('click', onClick)
     }
-  }, [open])
+  }, [open, userMenuOpen])
+
+  const handleSignOut = async () => {
+    await signOut()
+    setUserMenuOpen(false)
+  }
 
   return (
     <header className="sticky top-0 z-50 w-full border-b border-border/40 bg-background/80 backdrop-blur-md supports-[backdrop-filter]:bg-background/70">
@@ -84,6 +106,64 @@ export default function Header() {
             })}
           </nav>
 
+          {/* User Menu */}
+          <div className="hidden md:flex items-center gap-4">
+            {user ? (
+              <div className="relative" ref={userMenuRef}>
+                <button
+                  onClick={() => setUserMenuOpen(!userMenuOpen)}
+                  className="flex items-center gap-2 p-2 rounded-md hover:bg-foreground/5 transition-colors"
+                >
+                  <div className="w-8 h-8 rounded-full bg-gradient-to-br from-primary to-purple-500 flex items-center justify-center text-white text-sm font-bold shadow-sm">
+                    {getAvatarEmoji(profile?.avatar)}
+                  </div>
+                  <span className="text-sm font-medium text-foreground">
+                    {profile?.name || 'User'}
+                  </span>
+                </button>
+
+                {userMenuOpen && (
+                  <Card className="absolute right-0 top-full mt-2 w-48 p-2 shadow-lg">
+                    <div className="space-y-1">
+                      <Link
+                        href="/profile"
+                        className="flex items-center gap-2 px-3 py-2 text-sm rounded-md hover:bg-foreground/5 transition-colors"
+                        onClick={() => setUserMenuOpen(false)}
+                      >
+                        <User className="h-4 w-4" />
+                        Profile
+                      </Link>
+                      <Link
+                        href="/dashboard"
+                        className="flex items-center gap-2 px-3 py-2 text-sm rounded-md hover:bg-foreground/5 transition-colors"
+                        onClick={() => setUserMenuOpen(false)}
+                      >
+                        <Settings className="h-4 w-4" />
+                        Settings
+                      </Link>
+                      <button
+                        onClick={handleSignOut}
+                        className="w-full flex items-center gap-2 px-3 py-2 text-sm rounded-md hover:bg-foreground/5 transition-colors text-left"
+                      >
+                        <LogOut className="h-4 w-4" />
+                        Sign Out
+                      </button>
+                    </div>
+                  </Card>
+                )}
+              </div>
+            ) : (
+              <div className="flex items-center gap-2">
+                <Button asChild variant="ghost" size="sm">
+                  <Link href="/auth/signin">Sign In</Link>
+                </Button>
+                <Button asChild size="sm">
+                  <Link href="/auth/signup">Sign Up</Link>
+                </Button>
+              </div>
+            )}
+          </div>
+
           {/* Burger (mobile) */}
           <button
             ref={btnRef}
@@ -105,7 +185,7 @@ export default function Header() {
           className={[
             'md:hidden absolute left-4 right-4 top-full',
             // animation: height + opacity + slight slide
-            'overflow-hidden rounded-xl border border-border/50 bg-background/95 shadow-lg backdrop-blur-sm',
+            'overflow-hidden rounded-xl border border-border/50 bg-background shadow-lg backdrop-blur-sm',
             'transition-[max-height,opacity,transform] duration-250 ease-out will-change-[max-height,opacity,transform]',
             open
               ? 'max-h-[60vh] opacity-100 translate-y-1'
@@ -135,6 +215,71 @@ export default function Header() {
                   </li>
                 )
               })}
+              
+              {/* Mobile Auth Section */}
+              <li className="border-t border-border/50 mt-2 pt-2">
+                {user ? (
+                  <>
+                    <div className="px-4 py-2 flex items-center gap-3">
+                      <div className="w-8 h-8 rounded-full bg-gradient-to-br from-primary to-purple-500 flex items-center justify-center text-white text-sm font-bold shadow-sm">
+                        {getAvatarEmoji(profile?.avatar)}
+                      </div>
+                      <div>
+                        <p className="text-sm font-medium text-foreground">
+                          {profile?.name || 'User'}
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          {user?.email}
+                        </p>
+                      </div>
+                    </div>
+                    <Link
+                      href="/profile"
+                      role="menuitem"
+                      className="block px-4 py-2 text-sm rounded-md mx-1 my-0.5 text-foreground/80 hover:bg-foreground/5 transition-colors"
+                      onClick={() => setOpen(false)}
+                    >
+                      Profile
+                    </Link>
+                    <Link
+                      href="/dashboard"
+                      role="menuitem"
+                      className="block px-4 py-2 text-sm rounded-md mx-1 my-0.5 text-foreground/80 hover:bg-foreground/5 transition-colors"
+                      onClick={() => setOpen(false)}
+                    >
+                      Settings
+                    </Link>
+                    <button
+                      onClick={() => {
+                        handleSignOut()
+                        setOpen(false)
+                      }}
+                      className="w-full text-left px-4 py-2 text-sm rounded-md mx-1 my-0.5 text-foreground/80 hover:bg-foreground/5 transition-colors"
+                    >
+                      Sign Out
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    <Link
+                      href="/auth/signin"
+                      role="menuitem"
+                      className="block px-4 py-2 text-sm rounded-md mx-1 my-0.5 text-foreground/80 hover:bg-foreground/5 transition-colors"
+                      onClick={() => setOpen(false)}
+                    >
+                      Sign In
+                    </Link>
+                    <Link
+                      href="/auth/signup"
+                      role="menuitem"
+                      className="block px-4 py-2 text-sm rounded-md mx-1 my-0.5 text-foreground/80 hover:bg-foreground/5 transition-colors"
+                      onClick={() => setOpen(false)}
+                    >
+                      Sign Up
+                    </Link>
+                  </>
+                )}
+              </li>
             </ul>
           </nav>
         </div>

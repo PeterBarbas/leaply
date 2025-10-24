@@ -4,6 +4,8 @@ import Script from "next/script";
 import "./globals.css";
 import Header from '@/components/layout/header'
 import Footer from '@/components/layout/footer'
+import { AuthProvider } from '@/lib/auth'
+import ConditionalLayout from '@/components/layout/ConditionalLayout'
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -34,9 +36,11 @@ export default function RootLayout({
           data-blockingmode="manual"
           strategy="afterInteractive"
         />
-        <Header />
-        {children}
-        <Footer />
+        <AuthProvider>
+          <ConditionalLayout>
+            {children}
+          </ConditionalLayout>
+        </AuthProvider>
       </body>
     </html>
   );

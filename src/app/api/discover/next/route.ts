@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { supabaseAdmin, supabaseAnon } from "@/lib/supabase";
+import { supabaseAdmin } from "@/lib/supabase-server";
+import { supabaseAnon } from "@/lib/supabase";
 import { getNextAction, generateSimulationSpec, generateRoleInformation, QA } from "@/lib/discover";
 import { slugify } from "@/lib/slug";
 import { normalizeAndEnforceSteps } from "@/lib/task_enforcer";

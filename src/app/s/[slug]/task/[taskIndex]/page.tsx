@@ -1,4 +1,6 @@
 import { supabaseAnon } from "@/lib/supabase";
+import { createServerClient } from '@supabase/ssr'
+import { cookies } from 'next/headers'
 import TaskPageClient from "@/components/TaskPageClient";
 
 type Sim = {
@@ -42,6 +44,28 @@ export default async function TaskPage(props: {
     return <div className="p-8">Attempt ID required</div>;
   }
 
+  // Get current user session
+  let currentUserId: string | undefined;
+  try {
+    const cookieStore = await cookies();
+    const supabase = createServerClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      {
+        cookies: {
+          get(name: string) {
+            return cookieStore.get(name)?.value
+          },
+        },
+      }
+    );
+    
+    const { data: { session } } = await supabase.auth.getSession();
+    currentUserId = session?.user?.id;
+  } catch (error) {
+    console.log('No authenticated user found');
+  }
+
   const task = tasks[taskIndexNum];
 
   return (
@@ -51,6 +75,7 @@ export default async function TaskPage(props: {
         task={task}
         taskIndex={taskIndexNum}
         attemptId={attemptId}
+        userId={currentUserId}
       />
     </main>
   );

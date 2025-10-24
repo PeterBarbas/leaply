@@ -1,7 +1,7 @@
 // src/app/api/attempt/admin/simulations/[slug]/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
-import { supabaseAdmin } from "@/lib/supabase";
+import { supabaseAdmin } from "@/lib/supabase-server";
 import { assertAdmin } from "@/lib/adminAuth";
 
 const Upsert = z.object({

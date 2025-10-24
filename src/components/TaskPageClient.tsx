@@ -37,6 +37,7 @@ type TaskPageClientProps = {
   task: TaskStep;
   taskIndex: number;
   attemptId: string;
+  userId?: string;
 };
 
 export default function TaskPageClient({
@@ -44,6 +45,7 @@ export default function TaskPageClient({
   task,
   taskIndex,
   attemptId,
+  userId,
 }: TaskPageClientProps) {
   const router = useRouter();
   const [input, setInput] = useState("");
@@ -178,7 +180,36 @@ export default function TaskPageClient({
     // Can only complete if feedback has been received
     if (!feedback) return;
     
-    // Mark task as completed in sessionStorage
+    setLoading(prev => ({ ...prev, finish: true }));
+    
+    try {
+      // Save progress to database if user is logged in
+      const response = await fetch('/api/attempt/progress', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          attemptId,
+          taskIndex,
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        // If user is not authenticated, continue with sessionStorage fallback
+        if (response.status === 401) {
+          console.log('User not authenticated, using sessionStorage fallback');
+        } else {
+          throw new Error(errorData.error || 'Failed to save progress');
+        }
+      }
+    } catch (error) {
+      console.error('Failed to save progress to database:', error);
+      // Continue with sessionStorage fallback
+    }
+    
+    // Mark task as completed in sessionStorage (fallback for non-authenticated users)
     const sessionKey = `simulation_progress_${sim.slug}`;
     const savedProgress = sessionStorage.getItem(sessionKey);
     if (savedProgress) {
@@ -192,6 +223,8 @@ export default function TaskPageClient({
         console.error('Failed to update progress:', error);
       }
     }
+    
+    setLoading(prev => ({ ...prev, finish: false }));
     
     // Navigate back to overview
     router.push(`/s/${sim.slug}/overview?attemptId=${attemptId}`);
