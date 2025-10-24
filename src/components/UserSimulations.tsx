@@ -146,7 +146,6 @@ export default function UserSimulations() {
     return (
       <Card>
         <CardContent className="p-8 text-center">
-          <Target className="h-12 w-12 mx-auto mb-4 text-muted-foreground opacity-50" />
           <h3 className="text-lg font-semibold text-foreground mb-2">No Simulations Yet</h3>
           <p className="text-muted-foreground mb-4">
             Start your first career simulation to see your progress here.
