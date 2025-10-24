@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -8,7 +8,7 @@ import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
 import { Shield, AlertCircle, Mail, CheckCircle } from 'lucide-react'
 
-export default function AdminSignIn() {
+function AdminSignInForm() {
   const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
@@ -203,5 +203,13 @@ export default function AdminSignIn() {
         </CardContent>
       </Card>
     </div>
+  )
+}
+
+export default function AdminSignIn() {
+  return (
+    <Suspense fallback={<div className="flex items-center justify-center min-h-screen">Loading...</div>}>
+      <AdminSignInForm />
+    </Suspense>
   )
 }
