@@ -24,6 +24,9 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Attempt not found" }, { status: 404 });
     }
 
+    // Type assertion for the simulations data
+    const simulationTitle = (attempt.simulations as any)?.title || 'Unknown Simulation';
+
     // If no user_id, this is a test attempt - don't award XP
     if (!attempt.user_id) {
       return NextResponse.json({ 
@@ -57,7 +60,7 @@ export async function POST(req: Request) {
         xp_amount: baseXP,
         task_level: taskLevel,
         is_correct: isCorrect,
-        simulation_title: attempt.simulations?.title || 'Unknown',
+        simulation_title: simulationTitle,
         created_at: new Date().toISOString()
       });
 
