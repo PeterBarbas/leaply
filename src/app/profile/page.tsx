@@ -47,6 +47,7 @@ export default function ProfilePage() {
     totalActiveDays: 0,
     totalXp: 0,
     level: 1,
+    xpToNextLevel: 100,
     achievements: [] as Achievement[]
   })
 
@@ -54,14 +55,16 @@ export default function ProfilePage() {
   useEffect(() => {
     const fetchUserStats = async () => {
       try {
-        // Fetch simulations and streaks in parallel
-        const [simulationsResponse, streaksResponse] = await Promise.all([
+        // Fetch simulations, streaks, and XP data in parallel
+        const [simulationsResponse, streaksResponse, xpResponse] = await Promise.all([
           fetch('/api/user/simulations'),
-          getUserStreaks()
+          getUserStreaks(),
+          fetch(`/api/user/xp?userId=${user?.id}`)
         ])
 
         let simulations: any[] = []
         let streaks = { current: 0, longest: 0, totalActiveDays: 0 }
+        let xpData = { totalXp: 0, level: 1, xpToNextLevel: 100 }
 
         if (simulationsResponse.ok) {
           const data = await simulationsResponse.json()
@@ -71,10 +74,13 @@ export default function ProfilePage() {
         if (streaksResponse.success && streaksResponse.data) {
           streaks = streaksResponse.data.streaks
         }
+
+        if (xpResponse.ok) {
+          const data = await xpResponse.json()
+          xpData = data
+        }
         
         const completed = simulations.filter((s: any) => s.status === 'completed')
-        const totalXp = completed.reduce((sum: number, s: any) => sum + (s.score || 0) * 10, 0)
-        const level = Math.floor(totalXp / 100) + 1
         const averageScore = completed.length > 0 ? 
           Math.round(completed.reduce((sum: number, s: any) => sum + (s.score || 0), 0) / completed.length * 10) / 10 : 0
         
@@ -85,8 +91,9 @@ export default function ProfilePage() {
           currentStreak: streaks.current,
           longestStreak: streaks.longest,
           totalActiveDays: streaks.totalActiveDays,
-          totalXp,
-          level,
+          totalXp: xpData.totalXp,
+          level: xpData.level,
+          xpToNextLevel: xpData.xpToNextLevel,
           achievements: [
             { id: 1, name: 'First Steps', description: 'Complete your first simulation', icon: '🎯', unlocked: completed.length > 0 },
             { id: 2, name: 'Streak Master', description: 'Complete 3 simulations in a row', icon: '🔥', unlocked: streaks.current >= 3 },
@@ -127,8 +134,30 @@ export default function ProfilePage() {
     return null // Will redirect
   }
 
-  const levelProgress = (userStats.totalXp % 100)
-  const nextLevelXp = 100 - levelProgress
+  // Calculate level progress based on XP to next level
+  // The xpToNextLevel field from the database represents how much XP is needed to reach the next level
+  // For level 1: need 100 XP total, for level 2: need 200 XP total, etc.
+  const xpNeededForCurrentLevel = userStats.level === 1 ? 0 : 
+    userStats.level === 2 ? 100 : 
+    userStats.level === 3 ? 200 : 
+    userStats.level === 4 ? 300 : 
+    userStats.level === 5 ? 550 : 
+    userStats.level === 6 ? 800 : 
+    (userStats.level - 6) * 1000 + 800; // For levels 7+
+  
+  const xpNeededForNextLevel = userStats.level === 1 ? 100 : 
+    userStats.level === 2 ? 200 : 
+    userStats.level === 3 ? 300 : 
+    userStats.level === 4 ? 550 : 
+    userStats.level === 5 ? 800 : 
+    userStats.level === 6 ? 1050 : 
+    (userStats.level - 5) * 1000 + 800; // For levels 7+
+  
+  const xpInCurrentLevel = userStats.totalXp - xpNeededForCurrentLevel
+  const xpNeededForLevel = xpNeededForNextLevel - xpNeededForCurrentLevel
+  
+  const levelProgress = userStats.totalXp > 0 && xpNeededForLevel > 0 ? 
+    Math.max(0, Math.min(100, (xpInCurrentLevel / xpNeededForLevel) * 100)) : 0
 
   return (
     <div className="min-h-screen bg-white dark:bg-gray-900">
@@ -180,7 +209,7 @@ export default function ProfilePage() {
                   <Progress value={levelProgress} className="h-3" />
                   <div className="flex justify-between text-xs text-muted-foreground mt-1">
                     <span>Level {userStats.level}</span>
-                    <span>{nextLevelXp} XP to Level {userStats.level + 1}</span>
+                    <span>{userStats.xpToNextLevel} XP to Level {userStats.level + 1}</span>
                   </div>
                 </div>
               </div>

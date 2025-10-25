@@ -245,7 +245,7 @@ export async function generateSimulationSpec(roleTitle: string) {
       .replace(/^-+|-+$/g, "");
 
       const SYSTEM = `
-      You are a senior ${roleTitle} practitioner and simulation designer. Produce **text-only**, highly specific, realistic simulation specs.
+      You are a senior ${roleTitle} practitioner and simulation designer. Create engaging, interactive learning experiences with **multiple choice** and **drag-and-drop** questions.
       
       **NAMING (MANDATORY):**
       - "title" starts with "${roleTitle}: "
@@ -253,20 +253,25 @@ export async function generateSimulationSpec(roleTitle: string) {
       - Every step's "role" is "${roleTitle}"
       
       **Design:**
-      - Exactly **15 atomic micro-tasks** organized into **3 stages of 5 tasks each** (each 5–10 minutes).
-      - Realistic, scoped, verifiable. No vague research tasks.
-      - **Stage 1 (Easy)**: Fundamentals and basic concepts - entry-level tasks
-      - **Stage 2 (Medium)**: Intermediate skills and synthesis - mid-level tasks  
-      - **Stage 3 (Hard)**: Advanced scenarios and complex decisions - senior-level tasks
-      - Include constraints that force clarity (word/char limits, formats, data points, recipients).
+      - Exactly **15 interactive tasks** organized into **3 stages of 5 tasks each** (each 2–5 minutes).
+      - Mix of question types: 60% multiple choice, 40% drag-and-drop matching
+      - **Stage 1 (Easy)**: Fundamentals and basic concepts - entry-level knowledge
+      - **Stage 2 (Medium)**: Intermediate skills and application - mid-level scenarios  
+      - **Stage 3 (Hard)**: Advanced scenarios and complex decisions - senior-level thinking
       
-      **Each task includes:**
-      - **Goal** — what to achieve
-      - **Context** — realistic scenario
-      - **Constraints** — explicit limits (e.g., max 120 words, CSV header fixed, audience = VP, deadline = today 5pm)
-      - **Deliverable** — exact output
-      - **Tips** — helpful, not revealing the answer
-      - **stage** — which stage this task belongs to (1, 2, or 3)
+      **Question Types:**
+      
+      **Multiple Choice (4-6 options):**
+      - Test knowledge, decision-making, and best practices
+      - Include realistic scenarios with context
+      - One clearly correct answer, others plausible but wrong
+      - Add brief explanation for the correct answer
+      
+      **Drag-and-Drop Matching (5-8 pairs):**
+      - Match concepts, tools, processes, or scenarios
+      - Test understanding of relationships and connections
+      - Use clear, distinct pairs that aren't ambiguous
+      - Include brief explanation of the correct matches
       
       **STRICT JSON:**
       {
@@ -278,19 +283,47 @@ export async function generateSimulationSpec(roleTitle: string) {
             "index": 0,
             "kind": "task",
             "role": "${roleTitle}",
-            "title": "Imperative, concrete task title",
-            "summary_md": "**Your task:** …\\n\\n**Goal:** …\\n\\n**Context:** …\\n\\n**Constraints:** …\\n\\n**Deliverable:** …\\n\\n**Tips:** …",
-            "hint_md": "1–2 sentences that nudge without giving away the answer",
-            "expected_input": { "type": "text", "placeholder": "Write your attempt…" },
+            "title": "Choose the best approach for...",
+            "summary_md": "**Your task:** Answer this ${roleTitle} question\\n\\n**Goal:** Test your knowledge of...\\n\\n**Context:** You're working on...\\n\\n**Constraints:** Select the most appropriate answer\\n\\n**Deliverable:** Your selected answer\\n\\n**Tips:** Consider the practical implications...",
+            "hint_md": "Think about the most common industry practice...",
+            "expected_input": {
+              "type": "multiple_choice",
+              "question": "What is the best approach when...?",
+              "options": ["Option A", "Option B", "Option C", "Option D"],
+              "correct_answer": 1,
+              "explanation": "Option B is correct because..."
+            },
+            "stage": 1
+          },
+          {
+            "index": 1,
+            "kind": "task",
+            "role": "${roleTitle}",
+            "title": "Match the concepts with their definitions",
+            "summary_md": "**Your task:** Match each ${roleTitle} concept with its correct definition\\n\\n**Goal:** Demonstrate understanding of key terms\\n\\n**Context:** You're explaining concepts to a new team member\\n\\n**Constraints:** Drag each item to its correct match\\n\\n**Deliverable:** All pairs correctly matched\\n\\n**Tips:** Think about the core meaning of each term...",
+            "hint_md": "Consider the primary purpose of each concept...",
+            "expected_input": {
+              "type": "drag_drop",
+              "question": "Match each concept with its definition:",
+              "pairs": [
+                {"left": "Concept A", "right": "Definition A"},
+                {"left": "Concept B", "right": "Definition B"},
+                {"left": "Concept C", "right": "Definition C"},
+                {"left": "Concept D", "right": "Definition D"},
+                {"left": "Concept E", "right": "Definition E"}
+              ],
+              "explanation": "These matches are correct because..."
+            },
             "stage": 1
           }
         ]
       }
       
       **Quality bar:**
-      - Use credible corporate scenarios and up-to-date practices.
-      - Make each task independently checkable against the rubric.
-      - Prefer concrete artifacts (bullet list, brief email, user story, SQL WHERE clause, acceptance criteria).
+      - Use realistic ${roleTitle} scenarios and current industry practices
+      - Make questions challenging but fair - test understanding, not trickery
+      - Ensure explanations are educational and help learning
+      - Vary question difficulty appropriately across stages
       `.trim();
       
 

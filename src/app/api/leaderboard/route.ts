@@ -3,10 +3,10 @@ import { supabaseAdmin } from "@/lib/supabase-server";
 
 export async function GET() {
   try {
-    // First, get all users
+    // Get all users with their XP data
     const { data: users, error: usersError } = await supabaseAdmin
       .from("users")
-      .select("id, name, email, photo_url, avatar");
+      .select("id, name, email, photo_url, avatar, total_xp, level");
 
     if (usersError) {
       console.error("Error fetching users:", usersError);
@@ -17,7 +17,7 @@ export async function GET() {
       return NextResponse.json({ leaderboard: [] });
     }
 
-    // Then get all attempts for these users
+    // Get all attempts for these users to calculate simulation stats
     const userIds = users.map(user => user.id);
     const { data: attempts, error: attemptsError } = await supabaseAdmin
       .from("attempts")
@@ -29,50 +29,53 @@ export async function GET() {
       return NextResponse.json({ error: "Failed to fetch attempts" }, { status: 500 });
     }
 
-    // Calculate leaderboard scores for each user
+    // Calculate leaderboard data based on XP
     const leaderboardData = users
       .map(user => {
         const userAttempts = (attempts || []).filter(attempt => attempt.user_id === user.id);
         const completedAttempts = userAttempts.filter(attempt => attempt.status === 'completed');
         
-        if (completedAttempts.length === 0) {
-          return null; // Skip users with no completed attempts
+        // Skip users with no XP and no completed attempts
+        if ((user.total_xp || 0) === 0 && completedAttempts.length === 0) {
+          return null;
         }
 
-        // Calculate total score and average
+        // Calculate simulation stats
         const totalScore = completedAttempts.reduce((sum, attempt) => sum + (attempt.score || 0), 0);
-        const averageScore = totalScore / completedAttempts.length;
-        
-        // Calculate total completed tasks across all simulations
-        const totalCompletedTasks = completedAttempts.length; // Each completed attempt = 1 simulation completed
-        
-        // Leaderboard score: weighted combination of completed simulations and average score
-        // 70% weight on number of completed simulations, 30% on average score
-        const leaderboardScore = (totalCompletedTasks * 0.7) + (averageScore * 0.3);
+        const averageScore = completedAttempts.length > 0 ? totalScore / completedAttempts.length : 0;
+        const totalCompletedTasks = completedAttempts.length;
 
         return {
           id: user.id,
           name: user.name || 'Anonymous',
           email: user.email,
           photo_url: user.photo_url,
+          avatar: user.avatar,
           totalCompletedSimulations: totalCompletedTasks,
           averageScore: Math.round(averageScore * 10) / 10, // Round to 1 decimal
           totalScore: Math.round(totalScore * 10) / 10,
-          leaderboardScore: Math.round(leaderboardScore * 100) / 100,
-          completedAt: completedAttempts.map(a => a.completed_at).sort().reverse()[0] // Most recent completion
+          leaderboardScore: user.total_xp || 0, // Use total XP as the leaderboard score
+          level: user.level || 1,
+          totalXp: user.total_xp || 0,
+          completedAt: completedAttempts.length > 0 ? 
+            completedAttempts.map(a => a.completed_at).sort().reverse()[0] : null // Most recent completion
         };
       })
       .filter((entry): entry is NonNullable<typeof entry> => entry !== null) // Remove null entries with proper type guard
       .sort((a, b) => {
-        // Primary sort: leaderboard score (descending)
-        if (b.leaderboardScore !== a.leaderboardScore) {
-          return b.leaderboardScore - a.leaderboardScore;
+        // Primary sort: total XP (descending)
+        if (b.totalXp !== a.totalXp) {
+          return b.totalXp - a.totalXp;
         }
-        // Secondary sort: total completed simulations (descending)
+        // Secondary sort: level (descending)
+        if (b.level !== a.level) {
+          return b.level - a.level;
+        }
+        // Tertiary sort: total completed simulations (descending)
         if (b.totalCompletedSimulations !== a.totalCompletedSimulations) {
           return b.totalCompletedSimulations - a.totalCompletedSimulations;
         }
-        // Tertiary sort: average score (descending)
+        // Quaternary sort: average score (descending)
         return b.averageScore - a.averageScore;
       });
 

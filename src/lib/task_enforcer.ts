@@ -178,10 +178,27 @@ function upgradeLegacy(step: RawStep, idx: number, role?: string): TaskStep {
     (typeof step?.title === "string" && step.title) ||
     (typeof step?.label === "string" && step.label) ||
     `Task ${idx + 1}`;
-  const { title, brief } = makeAtomicFromLabel(rawTitle, role, idx);
   
   // Determine stage based on task index (0-4 = stage 1, 5-9 = stage 2, 10-14 = stage 3)
   const stage = Math.floor(idx / 5) + 1;
+  
+  // If the step already has the new question format, use it directly
+  if (step?.expected_input && (step.expected_input.type === "multiple_choice" || step.expected_input.type === "drag_drop")) {
+    const base: TaskStep = {
+      kind: "task",
+      index: idx,
+      role,
+      title: rawTitle,
+      summary_md: step.summary_md || `**Your task:** ${rawTitle}\n\nAnswer this interactive question.`,
+      expected_input: step.expected_input,
+      hint_md: step.hint_md || "Think carefully about your answer.",
+      stage: Math.min(stage, 3),
+    };
+    return TaskStepSchema.parse(base);
+  }
+  
+  // Legacy text-based tasks
+  const { title, brief } = makeAtomicFromLabel(rawTitle, role, idx);
   
   const base: TaskStep = {
     kind: "task",

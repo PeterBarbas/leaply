@@ -40,7 +40,21 @@ type TaskStep = {
   summary_md?: string;
   hint_md?: string;
   resources?: Array<any>;
-  expected_input?: { type: "text"; placeholder?: string };
+  expected_input?: 
+    | { type: "text"; placeholder?: string }
+    | { 
+        type: "multiple_choice"; 
+        question: string; 
+        options: string[]; 
+        correct_answer: number; 
+        explanation?: string; 
+      }
+    | { 
+        type: "drag_drop"; 
+        question: string; 
+        pairs: Array<{ left: string; right: string }>; 
+        explanation?: string; 
+      };
   stage?: number;
 };
 
@@ -116,8 +130,25 @@ export default function SimulationPageClient({
     sessionStorage.setItem(sessionKey, JSON.stringify(progressData));
   }, [attemptId, localCompletedTasks, sessionKey, sim.slug, tasks.length]);
 
-  // Initialize with server data as source of truth
+  // Initialize with server data as source of truth, but fall back to sessionStorage for test attempts
   useEffect(() => {
+    // If server has no completed tasks, check sessionStorage (for test attempts)
+    if (completedTasks.length === 0) {
+      const savedProgress = sessionStorage.getItem(sessionKey);
+      if (savedProgress) {
+        try {
+          const progressData = JSON.parse(savedProgress);
+          if (progressData.completedTasks && progressData.completedTasks.length > 0) {
+            console.log('Loading progress from sessionStorage:', progressData.completedTasks);
+            setLocalCompletedTasks(progressData.completedTasks);
+            return; // Don't overwrite with empty server data
+          }
+        } catch (error) {
+          console.error('Failed to parse sessionStorage progress:', error);
+        }
+      }
+    }
+    
     setLocalCompletedTasks(completedTasks);
 
     // Update sessionStorage to match server
@@ -322,6 +353,19 @@ export default function SimulationPageClient({
         return "text-red-500";
       default:
         return "text-gray-500";
+    }
+  };
+
+  const getStageBadgeColor = (stage: number) => {
+    switch (stage) {
+      case 1:
+        return "bg-gradient-to-br from-blue-500 to-blue-600 text-white shadow-lg";
+      case 2:
+        return "bg-gradient-to-br from-orange-500 to-orange-600 text-white shadow-lg";
+      case 3:
+        return "bg-gradient-to-br from-red-500 to-red-600 text-white shadow-lg";
+      default:
+        return "bg-gradient-to-br from-gray-500 to-gray-600 text-white shadow-lg";
     }
   };
 
@@ -600,10 +644,10 @@ export default function SimulationPageClient({
                                     }}
                                     className={`absolute -bottom-1 right-0 -translate-x-1/2 w-8 h-8 rounded-full flex items-center justify-center font-bold text-xs ${
                                       isCompleted
-                                        ? "bg-gradient-to-br from-yellow-400 to-orange-500 text-white shadow-lg"
+                                        ? "bg-gradient-to-br from-green-400 to-green-500 text-white shadow-lg"
                                         : isLocked
                                         ? "bg-gradient-to-br from-gray-400 to-gray-500 text-white shadow-md"
-                                        : "bg-gradient-to-br from-purple-500 to-pink-500 text-white shadow-lg"
+                                        : getStageBadgeColor(task.stage || 1)
                                     }`}
                                   >
                                     {index + 1}
@@ -795,10 +839,10 @@ export default function SimulationPageClient({
                                     }}
                                     className={`absolute -bottom-1 right-0 -translate-x-1/2 w-7 h-7 rounded-full flex items-center justify-center font-bold text-xs ${
                                       isCompleted
-                                        ? "bg-gradient-to-br from-yellow-400 to-orange-500 text-white shadow-lg"
+                                        ? "bg-gradient-to-br from-green-400 to-green-500 text-white shadow-lg"
                                         : isLocked
                                         ? "bg-gradient-to-br from-gray-400 to-gray-500 text-white shadow-md"
-                                        : "bg-gradient-to-br from-purple-500 to-pink-500 text-white shadow-lg"
+                                        : getStageBadgeColor(task.stage || 1)
                                     }`}
                                   >
                                     {index + 1}

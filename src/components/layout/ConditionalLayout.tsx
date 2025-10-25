@@ -11,10 +11,11 @@ interface ConditionalLayoutProps {
 export default function ConditionalLayout({ children }: ConditionalLayoutProps) {
   const pathname = usePathname()
   
-  // Hide header and footer only for signup page
+  // Hide header and footer for signup page and task pages
   const isSignupPage = pathname === '/auth/signup'
+  const isTaskPage = pathname.includes('/s/') && pathname.includes('/task/')
   
-  if (isSignupPage) {
+  if (isSignupPage || isTaskPage) {
     return <>{children}</>
   }
   

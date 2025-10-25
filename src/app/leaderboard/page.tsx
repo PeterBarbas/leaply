@@ -9,8 +9,8 @@ export default function LeaderboardPage() {
             🏆 Leaderboard
           </h1>
           <p className="text-sm sm:text-base lg:text-lg text-muted-foreground max-w-2xl mx-auto px-4">
-            Compete with other users based on completed simulations and average scores. 
-            The more you complete, the higher you rank!
+            Compete with other users based on your total XP earned from completing tasks. 
+            The more XP you earn, the higher you rank!
           </p>
         </div>
         

@@ -18,7 +18,9 @@ type LeaderboardEntry = {
   averageScore: number;
   totalScore: number;
   leaderboardScore: number;
-  completedAt: string;
+  level: number;
+  totalXp: number;
+  completedAt: string | null;
 };
 
 export default function LeaderboardClient() {
@@ -182,19 +184,15 @@ export default function LeaderboardClient() {
                     
                     {/* Stats */}
                     <div className="space-y-1 text-xs text-muted-foreground">
-                      <div className="flex items-center justify-center gap-1">
-                        <Target className="h-2 w-2" />
-                        {user.totalCompletedSimulations}
+                      <div className="flex items-center justify-center mb-1">
+                        Level {user.level}
                       </div>
-                      <div className="flex items-center justify-center gap-1">
-                        <BarChart3 className="h-2 w-2" />
-                        {user.averageScore}/10
-                      </div>
+
                     </div>
                     
-                    {/* Score Badge */}
+                    {/* XP Badge */}
                     <Badge className="mt-1 bg-primary/10 text-primary border-primary/20 text-xs">
-                      {user.leaderboardScore.toFixed(1)} pts
+                      {user.totalXp} XP
                     </Badge>
                   </CardContent>
                 </Card>
@@ -242,19 +240,19 @@ export default function LeaderboardClient() {
                   <div className="space-y-1 text-xs text-muted-foreground">
                     <div className="flex items-center justify-center gap-1">
                       <Target className="h-3 w-3" />
-                      <span className="hidden lg:inline">{topThree[1].totalCompletedSimulations} simulations</span>
-                      <span className="lg:hidden">{topThree[1].totalCompletedSimulations}</span>
+                      <span className="hidden lg:inline">Level {topThree[1].level}</span>
+                      <span className="lg:hidden">L{topThree[1].level}</span>
                     </div>
                     <div className="flex items-center justify-center gap-1">
                       <BarChart3 className="h-3 w-3" />
-                      <span className="hidden lg:inline">{topThree[1].averageScore}/10 avg</span>
-                      <span className="lg:hidden">{topThree[1].averageScore}/10</span>
+                      <span className="hidden lg:inline">{topThree[1].totalCompletedSimulations} simulations</span>
+                      <span className="lg:hidden">{topThree[1].totalCompletedSimulations}</span>
                     </div>
                   </div>
                   
-                  {/* Score Badge */}
+                  {/* XP Badge */}
                   <Badge className="mt-2 bg-primary/10 text-primary border-primary/20 text-xs">
-                    {topThree[1].leaderboardScore.toFixed(1)} pts
+                    {topThree[1].totalXp} XP
                   </Badge>
                 </CardContent>
               </Card>
@@ -298,19 +296,19 @@ export default function LeaderboardClient() {
                   <div className="space-y-1 text-xs text-muted-foreground">
                     <div className="flex items-center justify-center gap-1">
                       <Target className="h-3 w-3" />
-                      <span className="hidden lg:inline">{topThree[0].totalCompletedSimulations} simulations</span>
-                      <span className="lg:hidden">{topThree[0].totalCompletedSimulations}</span>
+                      <span className="hidden lg:inline">Level {topThree[0].level}</span>
+                      <span className="lg:hidden">L{topThree[0].level}</span>
                     </div>
                     <div className="flex items-center justify-center gap-1">
                       <BarChart3 className="h-3 w-3" />
-                      <span className="hidden lg:inline">{topThree[0].averageScore}/10 avg</span>
-                      <span className="lg:hidden">{topThree[0].averageScore}/10</span>
+                      <span className="hidden lg:inline">{topThree[0].totalCompletedSimulations} simulations</span>
+                      <span className="lg:hidden">{topThree[0].totalCompletedSimulations}</span>
                     </div>
                   </div>
                   
-                  {/* Score Badge */}
+                  {/* XP Badge */}
                   <Badge className="mt-2 bg-primary/10 text-primary border-primary/20 text-xs">
-                    {topThree[0].leaderboardScore.toFixed(1)} pts
+                    {topThree[0].totalXp} XP
                   </Badge>
                 </CardContent>
               </Card>
@@ -354,19 +352,19 @@ export default function LeaderboardClient() {
                   <div className="space-y-1 text-xs text-muted-foreground">
                     <div className="flex items-center justify-center gap-1">
                       <Target className="h-3 w-3" />
-                      <span className="hidden lg:inline">{topThree[2].totalCompletedSimulations} simulations</span>
-                      <span className="lg:hidden">{topThree[2].totalCompletedSimulations}</span>
+                      <span className="hidden lg:inline">Level {topThree[2].level}</span>
+                      <span className="lg:hidden">L{topThree[2].level}</span>
                     </div>
                     <div className="flex items-center justify-center gap-1">
                       <BarChart3 className="h-3 w-3" />
-                      <span className="hidden lg:inline">{topThree[2].averageScore}/10 avg</span>
-                      <span className="lg:hidden">{topThree[2].averageScore}/10</span>
+                      <span className="hidden lg:inline">{topThree[2].totalCompletedSimulations} simulations</span>
+                      <span className="lg:hidden">{topThree[2].totalCompletedSimulations}</span>
                     </div>
                   </div>
                   
-                  {/* Score Badge */}
+                  {/* XP Badge */}
                   <Badge className="mt-2 bg-primary/10 text-primary border-primary/20 text-xs">
-                    {topThree[2].leaderboardScore.toFixed(1)} pts
+                    {topThree[2].totalXp} XP
                   </Badge>
                 </CardContent>
               </Card>
@@ -411,21 +409,21 @@ export default function LeaderboardClient() {
                       <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-4 text-xs sm:text-sm text-muted-foreground">
                         <span className="flex items-center gap-1">
                           <Target className="h-2 w-2 sm:h-3 sm:w-3 flex-shrink-0" />
-                          <span className="hidden sm:inline">{user.totalCompletedSimulations} simulations</span>
-                          <span className="sm:hidden">{user.totalCompletedSimulations} sims</span>
+                          <span className="hidden sm:inline">Level {user.level}</span>
+                          <span className="sm:hidden">L{user.level}</span>
                         </span>
                         <span className="flex items-center gap-1">
                           <BarChart3 className="h-2 w-2 sm:h-3 sm:w-3 flex-shrink-0" />
-                          <span className="hidden sm:inline">{user.averageScore}/10 avg</span>
-                          <span className="sm:hidden">{user.averageScore}/10</span>
+                          <span className="hidden sm:inline">{user.totalCompletedSimulations} simulations</span>
+                          <span className="sm:hidden">{user.totalCompletedSimulations} sims</span>
                         </span>
                       </div>
                     </div>
                     
-                    {/* Score */}
+                    {/* XP */}
                     <div className="text-right flex-shrink-0">
                       <Badge variant="outline" className="font-semibold text-xs sm:text-sm">
-                        {user.leaderboardScore.toFixed(1)} pts
+                        {user.totalXp} XP
                       </Badge>
                     </div>
                   </div>

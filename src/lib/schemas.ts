@@ -10,6 +10,25 @@ const hasSections = (s: string) =>
 
 const startsWithImperative = (t: string) => /^[A-Z][a-z]+/.test(t) && /^(Write|Draft|Find|Choose|Prioritize|Outline|Estimate|Design|Review|Refactor|Plan|Define)\b/i.test(t);
 
+// Question types for interactive tasks
+const MultipleChoiceQuestionSchema = z.object({
+  type: z.literal("multiple_choice"),
+  question: z.string().min(10),
+  options: z.array(z.string()).min(4).max(6),
+  correct_answer: z.number().int().min(0),
+  explanation: z.string().optional(),
+});
+
+const DragDropQuestionSchema = z.object({
+  type: z.literal("drag_drop"),
+  question: z.string().min(10),
+  pairs: z.array(z.object({
+    left: z.string(),
+    right: z.string(),
+  })).min(5).max(8),
+  explanation: z.string().optional(),
+});
+
 export const TaskStepSchema = z.object({
   kind: z.literal("task"),
   index: z.number().int().nonnegative(),
@@ -18,10 +37,14 @@ export const TaskStepSchema = z.object({
   summary_md: z.string().min(80).refine(hasSections, { message: "summary_md must include Goal, Context, Constraints, Deliverable, Tips sections." })
     .refine((s) => /\b\d/.test(s) || /character|word|limit|minutes|kpi|score|rate|error/i.test(s), { message: "summary_md must include at least one concrete constraint (e.g., length, timebox, metric)." }),
   hint_md: z.string().optional(),
-  expected_input: z.object({
-    type: z.literal("text"),
-    placeholder: z.string().optional(),
-  }).default({ type: "text", placeholder: "Write your attempt…" }),
+  expected_input: z.union([
+    z.object({
+      type: z.literal("text"),
+      placeholder: z.string().optional(),
+    }),
+    MultipleChoiceQuestionSchema,
+    DragDropQuestionSchema,
+  ]).default({ type: "text", placeholder: "Write your attempt…" }),
   stage: z.number().int().min(1).max(3).optional().default(1),
 });
 

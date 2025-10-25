@@ -3,7 +3,7 @@
 import { useState, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
-import { ArrowLeft, Lightbulb, CheckCircle, User, Clock, Target, Paperclip, X, FileText, Image as ImageIcon, File, Code, ChevronDown, ChevronUp } from "lucide-react";
+import { ArrowLeft, CheckCircle, User, Clock, Target, Paperclip, X, FileText, Image as ImageIcon, File, Code, ChevronDown, ChevronUp } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -11,6 +11,9 @@ import { Badge } from "@/components/ui/badge";
 import Link from "next/link";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
+import MultipleChoiceQuestion, { MultipleChoiceQuestionRef } from "@/components/ui/MultipleChoiceQuestion";
+import DragDropQuestion from "@/components/ui/DragDropQuestion";
+import CompletionScreen, { CompletionScreenProps } from "@/components/ui/CompletionScreen";
 
 type Sim = {
   slug: string;
@@ -29,7 +32,22 @@ type TaskStep = {
   summary_md?: string;
   hint_md?: string;
   resources?: Array<any>;
-  expected_input?: { type: "text"; placeholder?: string };
+  expected_input?: 
+    | { type: "text"; placeholder?: string }
+    | { 
+        type: "multiple_choice"; 
+        question: string; 
+        options: string[]; 
+        correct_answer: number; 
+        explanation?: string; 
+      }
+    | { 
+        type: "drag_drop"; 
+        question: string; 
+        pairs: Array<{ left: string; right: string }>; 
+        explanation?: string; 
+      };
+  stage?: number;
 };
 
 type TaskPageClientProps = {
@@ -49,22 +67,76 @@ export default function TaskPageClient({
 }: TaskPageClientProps) {
   const router = useRouter();
   const [input, setInput] = useState("");
-  const [hint, setHint] = useState<string | null>(null);
-  const [feedback, setFeedback] = useState<string | null>(null);
   const [senior, setSenior] = useState<string | null>(null);
   const [attachments, setAttachments] = useState<File[]>([]);
   const [isCodeMode, setIsCodeMode] = useState(false);
-  const [showHintPopup, setShowHintPopup] = useState(false);
   const [isMissionCollapsed, setIsMissionCollapsed] = useState(false);
-  const [isFeedbackCollapsed, setIsFeedbackCollapsed] = useState(false);
   const [isSeniorCollapsed, setIsSeniorCollapsed] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const multipleChoiceRef = useRef<MultipleChoiceQuestionRef>(null);
   const [loading, setLoading] = useState<{ 
-    hint?: boolean; 
-    feedback?: boolean; 
     senior?: boolean; 
     finish?: boolean 
   }>({});
+  const [questionAnswered, setQuestionAnswered] = useState(false);
+  const [questionResult, setQuestionResult] = useState<{ isCorrect: boolean; explanation?: string } | null>(null);
+  const [showCompletionScreen, setShowCompletionScreen] = useState(false);
+  const [completionResult, setCompletionResult] = useState<{ isCorrect: boolean; timeSpent?: string; xpEarned?: number; accuracy?: number } | null>(null);
+  const [hasMultipleChoiceSelection, setHasMultipleChoiceSelection] = useState(false);
+  const [isNavigating, setIsNavigating] = useState(false);
+  
+  // Calculate XP based on task level and correctness
+  const calculateXP = (taskLevel: number, isCorrect: boolean): number => {
+    // Base XP multipliers by level
+    const levelMultipliers = {
+      1: 10,  // Beginner
+      2: 15,  // Easy
+      3: 20,  // Medium
+      4: 30,  // Hard
+      5: 40,  // Expert
+      6: 50,  // Master
+    };
+
+    // Get base XP for the level (default to level 1 if not found)
+    const baseXP = levelMultipliers[taskLevel as keyof typeof levelMultipliers] || levelMultipliers[1];
+    
+    // Apply correctness multiplier
+    const correctnessMultiplier = isCorrect ? 1.0 : 0.3; // 30% XP for incorrect answers
+    
+    return Math.round(baseXP * correctnessMultiplier);
+  };
+
+  // Audio for completion sound
+  const playCompletionSound = () => {
+    try {
+      // Create a simple success sound using Web Audio API
+      const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+      
+      // Create a pleasant success sound (like Duolingo)
+      const oscillator = audioContext.createOscillator();
+      const gainNode = audioContext.createGain();
+      
+      oscillator.connect(gainNode);
+      gainNode.connect(audioContext.destination);
+      
+      // Set up the sound - a pleasant ascending tone
+      oscillator.frequency.setValueAtTime(523.25, audioContext.currentTime); // C5
+      oscillator.frequency.setValueAtTime(659.25, audioContext.currentTime + 0.1); // E5
+      oscillator.frequency.setValueAtTime(783.99, audioContext.currentTime + 0.2); // G5
+      
+      // Set volume envelope
+      gainNode.gain.setValueAtTime(0, audioContext.currentTime);
+      gainNode.gain.linearRampToValueAtTime(0.3, audioContext.currentTime + 0.05);
+      gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.5);
+      
+      // Play the sound
+      oscillator.start(audioContext.currentTime);
+      oscillator.stop(audioContext.currentTime + 0.5);
+    } catch (error) {
+      // Fallback: try to play a simple beep if Web Audio API fails
+      console.log('Audio playback not available');
+    }
+  };
 
   const totalTasks = sim.steps?.length || 0;
 
@@ -104,57 +176,8 @@ export default function TaskPageClient({
     return <File className="h-4 w-4" />;
   };
 
-  async function getHint() {
-    try {
-      setLoading((l) => ({ ...l, hint: true }));
-      const res = await fetch("/api/attempt/hint", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ attemptId, stepIndex: task.index }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data?.error || "Could not get hint");
-      setHint(data.hint_md);
-      setShowHintPopup(true);
-    } catch {
-      setHint("Try focusing on the goal, constraints, and one key metric.");
-      setShowHintPopup(true);
-    } finally {
-      setLoading((l) => ({ ...l, hint: false }));
-    }
-  }
 
-  // Auto-hide hint popup after 10 seconds
-  useEffect(() => {
-    if (showHintPopup && hint) {
-      const timer = setTimeout(() => {
-        setShowHintPopup(false);
-      }, 10000);
-      return () => clearTimeout(timer);
-    }
-  }, [showHintPopup, hint]);
 
-  async function getFeedback() {
-    if (!input.trim()) return;
-    
-    try {
-      setLoading((l) => ({ ...l, feedback: true }));
-      const res = await fetch("/api/attempt/step", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ attemptId, stepIndex: task.index, input }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data?.error || "Could not get feedback");
-      // The API returns 'feedback', not 'feedback_md'
-      setFeedback(data.feedback || "Good effort! Consider the key requirements and constraints mentioned in the task.");
-    } catch (error) {
-      console.error("Feedback error:", error);
-      setFeedback("Good effort! Consider the key requirements and constraints mentioned in the task.");
-    } finally {
-      setLoading((l) => ({ ...l, feedback: false }));
-    }
-  }
 
   async function getSeniorExample() {
     try {
@@ -177,9 +200,36 @@ export default function TaskPageClient({
   }
 
   const handleComplete = async () => {
-    // Can only complete if feedback has been received
-    if (!feedback) return;
+    // For multiple choice, finalize the answer first
+    if (task.expected_input?.type === "multiple_choice") {
+      if (!multipleChoiceRef.current?.hasSelection) return;
+      multipleChoiceRef.current.finalizeAnswer();
+      // Wait a bit for the answer to be processed
+      await new Promise(resolve => setTimeout(resolve, 100));
+    }
     
+    // For interactive questions, can complete if question has been answered
+    // For text-based tasks, can complete if input is provided
+    if ((task.expected_input?.type === "multiple_choice" || task.expected_input?.type === "drag_drop") && !questionAnswered) return;
+    if (task.expected_input?.type === "text" && !input.trim()) return;
+    
+    // Calculate completion metrics
+    const isCorrect = questionResult?.isCorrect ?? true; // Default to true for text-based tasks
+    const timeSpent = "1:32"; // This could be calculated based on actual time
+    const taskLevel = task.stage || 1; // Get task difficulty level
+    const xpEarned = calculateXP(taskLevel, isCorrect);
+    const accuracy = isCorrect ? 100 : 50;
+    
+    // Play completion sound
+    playCompletionSound();
+    
+    // Set completion result and show screen
+    setCompletionResult({ isCorrect, timeSpent, xpEarned, accuracy });
+    setShowCompletionScreen(true);
+  };
+
+  const handleCompletionClose = async () => {
+    setIsNavigating(true);
     setLoading(prev => ({ ...prev, finish: true }));
     
     try {
@@ -197,11 +247,41 @@ export default function TaskPageClient({
 
       if (!response.ok) {
         const errorData = await response.json();
-        // If user is not authenticated, continue with sessionStorage fallback
-        if (response.status === 401) {
-          console.log('User not authenticated, using sessionStorage fallback');
+        // If user is not authenticated or attempt not found (test attempts), continue with sessionStorage fallback
+        if (response.status === 401 || response.status === 404) {
+          console.log('User not authenticated or attempt not found, using sessionStorage fallback');
         } else {
           throw new Error(errorData.error || 'Failed to save progress');
+        }
+      }
+
+      // Claim XP if user is authenticated and task was completed
+      if (attemptId !== 'test' && questionResult) {
+        try {
+          const taskLevel = task.stage || 1; // Default to level 1 if no stage specified
+          const xpResponse = await fetch('/api/user/claim-xp', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              attemptId,
+              taskIndex,
+              isCorrect: questionResult.isCorrect,
+              taskLevel,
+            }),
+          });
+
+          if (xpResponse.ok) {
+            const xpData = await xpResponse.json();
+            console.log('XP claimed successfully:', xpData);
+            // You could show a notification here about XP gained
+          } else {
+            console.error('Failed to claim XP:', await xpResponse.text());
+          }
+        } catch (xpError) {
+          console.error('Error claiming XP:', xpError);
+          // Don't fail the whole process if XP claiming fails
         }
       }
     } catch (error) {
@@ -212,16 +292,30 @@ export default function TaskPageClient({
     // Mark task as completed in sessionStorage (fallback for non-authenticated users)
     const sessionKey = `simulation_progress_${sim.slug}`;
     const savedProgress = sessionStorage.getItem(sessionKey);
-    if (savedProgress) {
-      try {
-        const progressData = JSON.parse(savedProgress);
-        if (!progressData.completedTasks.includes(taskIndex)) {
-          progressData.completedTasks.push(taskIndex);
-          sessionStorage.setItem(sessionKey, JSON.stringify(progressData));
-        }
-      } catch (error) {
-        console.error('Failed to update progress:', error);
+    
+    try {
+      let progressData;
+      if (savedProgress) {
+        progressData = JSON.parse(savedProgress);
+      } else {
+        // Initialize progress data if it doesn't exist
+        progressData = {
+          attemptId,
+          completedTasks: [],
+          timestamp: Date.now(),
+          simulationSlug: sim.slug,
+          totalTasks: totalTasks
+        };
       }
+      
+      if (!progressData.completedTasks.includes(taskIndex)) {
+        progressData.completedTasks.push(taskIndex);
+        progressData.timestamp = Date.now(); // Update timestamp
+        sessionStorage.setItem(sessionKey, JSON.stringify(progressData));
+        console.log('Task completed and saved to sessionStorage:', taskIndex);
+      }
+    } catch (error) {
+      console.error('Failed to update progress:', error);
     }
     
     setLoading(prev => ({ ...prev, finish: false }));
@@ -230,357 +324,161 @@ export default function TaskPageClient({
     router.push(`/s/${sim.slug}?attemptId=${attemptId}`);
   };
 
+  const handleMultipleChoiceAnswer = (selectedIndex: number, isCorrect: boolean) => {
+    setQuestionAnswered(true);
+    setQuestionResult({ isCorrect, explanation: task.expected_input?.type === "multiple_choice" ? task.expected_input.explanation : undefined });
+  };
+
+  const handleDragDropComplete = (matches: { left: string; right: string }[], isCorrect: boolean) => {
+    setQuestionAnswered(true);
+    setQuestionResult({ isCorrect, explanation: task.expected_input?.type === "drag_drop" ? task.expected_input.explanation : undefined });
+  };
+
+  const handleMultipleChoiceSelectionChange = (selectedIndex: number | null) => {
+    setHasMultipleChoiceSelection(selectedIndex !== null);
+  };
+
   return (
-    <div className="mx-auto max-w-4xl px-6 py-10">
-      {/* Back Button */}
-      <div className="mb-6">
-        <Link
-          href={`/s/${sim.slug}?attemptId=${attemptId}`}
-          className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
-        >
-          <ArrowLeft className="h-4 w-4" />
-          Back to simulation
-        </Link>
-      </div>
+    <div className="min-h-screen flex flex-col bg-white">
+      {/* Main content area */}
+      <div className="flex-1 flex items-center justify-center max-w-4xl mx-auto px-4 sm:px-6 py-4 sm:py-8">
+        <div className="w-full">
+          {/* Question header */}
+          <div className="text-center mb-6 sm:mb-8">
+            <h2 className="text-xl sm:text-2xl lg:text-3xl font-bold text-gray-900 mb-2 px-4 sm:px-0">
+              {task.expected_input?.type === "multiple_choice" ? task.expected_input.question :
+               task.expected_input?.type === "drag_drop" ? task.expected_input.question :
+               task.title}
+            </h2>
+          </div>
 
-      {/* Header - Gamified */}
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.5 }}
-        className="mb-8"
-      >
-        
-        <div className="text-center">
-          <motion.div
-            initial={{ scale: 0.8 }}
-            animate={{ scale: 1 }}
-            transition={{ delay: 0.1, type: "spring" }}
-          >
-            <h1 className="text-3xl sm:text-4xl font-bold tracking-tight mb-4 bg-black bg-clip-text text-transparent">
-              {task.title}
-            </h1>
-          </motion.div>
-        </div>
-      </motion.div>
-
-      {/* Task Description - Gamified & Collapsable */}
-      {task.summary_md && (
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.1, duration: 0.5 }}
-          className="mb-8"
-        >
-          <Card>
-            <CardHeader 
-              onClick={() => setIsMissionCollapsed(!isMissionCollapsed)}
-            >
-              <CardTitle className="flex items-center justify-between">
-                <div className="flex items-center">
-                  <motion.div
-                    animate={{ scale: [1, 1.05, 1] }}
-                    transition={{ duration: 2, repeat: Infinity }}
-                  >
-                  </motion.div>
-                  <span className="text-lg font-bold">Your Task</span>
-                </div>
-                <motion.div
-                  animate={{ rotate: isMissionCollapsed ? 0 : 180 }}
-                  transition={{ duration: 0.3 }}
-                >
-                  <ChevronDown className="h-6 w-6" />
-                </motion.div>
-              </CardTitle>
-            </CardHeader>
-            {!isMissionCollapsed && (
-              <motion.div
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                transition={{ duration: 0.3 }}
-              >
-                <CardContent>
-                  <div className="prose prose-zinc dark:prose-invert max-w-none">
-                    <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                      {task.summary_md}
-                    </ReactMarkdown>
-                  </div>
-                </CardContent>
-              </motion.div>
-            )}
-          </Card>
-        </motion.div>
-      )}
-
-      {/* Your Response Block */}
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.2, duration: 0.5 }}
-        className="mb-8 space-y-4"
-      >
-                  {/* Attached Files */}
-                  {attachments.length > 0 && (
-            <div className="mt-4 space-y-2">
-              <p className="text-sm font-medium text-muted-foreground">Attachments:</p>
-              <div className="flex flex-wrap gap-2">
-                {attachments.map((file, index) => (
-                  <motion.div
-                    key={index}
-                    initial={{ opacity: 0, scale: 0.8 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    className="flex items-center gap-2 px-3 py-2 bg-blue-50 dark:bg-blue-950/30 rounded-lg border border-blue-200 dark:border-blue-800"
-                  >
-                    {getFileIcon(file)}
-                    <span className="text-xs font-medium truncate max-w-[150px]">
-                      {file.name}
-                    </span>
-                    <button
-                      onClick={() => removeAttachment(index)}
-                      className="p-1 hover:bg-blue-100 dark:hover:bg-blue-900 rounded transition-colors"
-                    >
-                      <X className="h-3 w-3" />
-                    </button>
-                  </motion.div>
-                ))}
+          {/* Question content */}
+          <div className="space-y-4 sm:space-y-6 flex flex-col items-center px-2 sm:px-0">
+          {/* Resources section - only show for text-based tasks */}
+          {task.expected_input?.type === "text" && Array.isArray(task.resources) && task.resources.length > 0 && (
+            <div className="mb-6">
+              <p className="text-sm font-medium text-gray-700 mb-3 text-center">📚 Resources</p>
+              <div className="grid gap-4 sm:grid-cols-2">
+                {task.resources.map((r, idx) => {
+                  if (r.type === "image") {
+                    return (
+                      <figure key={idx} className="rounded-lg p-2">
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img src={r.url} alt={r.caption || "resource"} className="w-full rounded-md" />
+                        {r.caption && <figcaption className="mt-1 text-xs text-gray-600 text-center">{r.caption}</figcaption>}
+                      </figure>
+                    );
+                  }
+                  if (r.type === "text") {
+                    return (
+                      <div key={idx} className="rounded-lg p-3 bg-gray-50">
+                        <ReactMarkdown remarkPlugins={[remarkGfm]}>{r.content_md}</ReactMarkdown>
+                      </div>
+                    );
+                  }
+                  if (r.type === "code") {
+                    return (
+                      <pre key={idx} className="rounded-lg p-3 overflow-x-auto text-xs bg-gray-50">
+                        {r.content}
+                      </pre>
+                    );
+                  }
+                  return null;
+                })}
               </div>
             </div>
           )}
-          
-        {/* Text Input Block */}
-        <div className="rounded-lg border border-border bg-card/70">
-          <div className="relative">
-            {isCodeMode ? (
-              /* Code Editor Mode */
-              <div className="relative bg-[#1e1e1e] rounded-lg overflow-hidden border border-gray-700">
-                {/* Line Numbers */}
-                <div className="flex">
-                  <div className="flex-shrink-0 bg-[#252526] text-gray-500 text-sm font-mono py-3 px-2 select-none">
-                    {(input || ' ').split('\n').map((_, i) => (
-                      <div key={i} className="leading-6 h-6">
-                        {i + 1}
-                      </div>
-                    ))}
+
+            {/* Interactive Question Components */}
+            {task.expected_input?.type === "multiple_choice" ? (
+              <div className="w-full max-w-2xl px-2 sm:px-0">
+                <MultipleChoiceQuestion
+                  ref={multipleChoiceRef}
+                  question={task.expected_input.question}
+                  options={task.expected_input.options}
+                  correctAnswer={task.expected_input.correct_answer}
+                  explanation={task.expected_input.explanation}
+                  onAnswer={handleMultipleChoiceAnswer}
+                  disabled={questionAnswered}
+                  color="blue"
+                  onSelectionChange={handleMultipleChoiceSelectionChange}
+                />
+              </div>
+            ) : task.expected_input?.type === "drag_drop" ? (
+              <div className="w-full max-w-4xl px-2 sm:px-0">
+                <DragDropQuestion
+                  question={task.expected_input.question}
+                  pairs={task.expected_input.pairs}
+                  explanation={task.expected_input.explanation}
+                  onComplete={handleDragDropComplete}
+                  disabled={questionAnswered}
+                />
+              </div>
+            ) : (
+              <div className="space-y-6">
+                {task.summary_md && (
+                  <div className="text-center">
+                    <div className="prose prose-zinc max-w-none text-gray-600">
+                      <ReactMarkdown remarkPlugins={[remarkGfm]}>{task.summary_md}</ReactMarkdown>
+                    </div>
                   </div>
+                )}
+                <div className="space-y-3 w-full max-w-2xl">
+                  <label className="text-base sm:text-lg font-medium text-gray-700 text-center block">✍️ Your Answer</label>
                   <Textarea
-                    placeholder="// Write your code here..."
+                    className="w-full rounded-2xl border-2 border-gray-200 p-4 sm:p-6 min-h-[120px] sm:min-h-[160px] focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-all text-base sm:text-lg"
+                    placeholder={task.expected_input?.placeholder || "Write your attempt here…"}
                     value={input}
                     onChange={(e) => setInput(e.target.value)}
-                    className="flex-1 min-h-[300px] p-3 bg-[#1e1e1e] resize-y text-gray-100 font-mono text-sm border-0 focus-visible:ring-0 focus-visible:ring-primary focus-visible:border-foreground/10 rounded-none"
-                    style={{ lineHeight: '1.5rem' }}
                   />
                 </div>
               </div>
-            ) : (
-              /* Text Mode */
-              <Textarea
-                placeholder="Your response here..."
-                value={input}
-                onChange={(e) => setInput(e.target.value)}
-                className="w-full rounded-md border-0 bg-transparent p-4 min-h-[300px] resize-y focus-visible:ring-0 focus-visible:ring-primary focus-visible:border-foreground/10 placeholder:text-muted-foreground"
-              />
             )}
-            
-            {/* Bottom Right Buttons */}
-            <div className="absolute bottom-3 right-3 flex gap-2">
-              <motion.button
-                whileHover={{ scale: 1.1 }}
-                whileTap={{ scale: 0.9 }}
-                onClick={getHint}
-                disabled={loading.hint}
-                className="p-2 rounded-lg bg-yellow-100 hover:bg-yellow-200 dark:bg-yellow-900/50 dark:hover:bg-yellow-900 transition-colors shadow-sm disabled:opacity-50"
-                title="Get a hint"
-              >
-                <Lightbulb className="h-4 w-4 text-yellow-600 dark:text-yellow-400" />
-              </motion.button>
 
-              <motion.button
-                whileHover={{ scale: 1.1 }}
-                whileTap={{ scale: 0.9 }}
-                onClick={() => setIsCodeMode(!isCodeMode)}
-                className={`p-2 rounded-lg transition-colors shadow-sm ${
-                  isCodeMode 
-                    ? 'bg-purple-200 hover:bg-purple-300 dark:bg-purple-800 dark:hover:bg-purple-700' 
-                    : 'bg-gray-200 hover:bg-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600'
-                }`}
-                title={isCodeMode ? "Switch to text mode" : "Switch to code mode"}
+          </div>
+        </div>
+      </div>
+
+      {/* Sticky Footer with Complete Button */}
+      <div className="sticky bottom-0 z-10">
+        <div className="w-full bg-white/80 backdrop-blur-sm border-t border-gray-200">
+          <div className="max-w-4xl mx-auto px-4 sm:px-6 py-3 sm:py-4">
+            <div className="flex items-center justify-between gap-2 sm:gap-4">
+              <Link
+                href={`/s/${sim.slug}?attemptId=${attemptId}`}
+                className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
               >
-                <Code className={`h-4 w-4 ${isCodeMode ? 'text-purple-700 dark:text-purple-200' : 'text-gray-600 dark:text-gray-400'}`} />
-              </motion.button>
-              
-              <motion.button
-                whileHover={{ scale: 1.1 }}
-                whileTap={{ scale: 0.9 }}
-                onClick={() => fileInputRef.current?.click()}
-                className="p-2 rounded-lg bg-blue-100 hover:bg-blue-200 dark:bg-blue-900/50 dark:hover:bg-blue-900 transition-colors shadow-sm"
-                title="Attach files (PDF, images, Excel)"
-              >
-                <Paperclip className="h-4 w-4 text-blue-600 dark:text-blue-400" />
-              </motion.button>
+                <ArrowLeft className="h-4 w-4" />
+                <span className="hidden sm:inline">Back</span>
+              </Link>
+
+              <div className="flex items-center gap-2 sm:gap-3">
+                {task.expected_input?.type === "text" && (
+                  <>
+                    <Button 
+                      variant="secondary" 
+                      onClick={getSeniorExample} 
+                      disabled={loading.senior}
+                      className="px-3 sm:px-4 py-2 rounded-xl bg-gradient-to-r from-purple-500 to-pink-600 hover:from-purple-600 hover:to-pink-700 text-white font-semibold text-xs sm:text-sm shadow-lg"
+                    >
+                      {loading.senior ? "Loading…" : "👨‍💼 Senior"}
+                    </Button>
+                  </>
+                )}
+                <Button 
+                  onClick={handleComplete}
+                  disabled={task.expected_input?.type === "multiple_choice" ? !hasMultipleChoiceSelection : task.expected_input?.type === "drag_drop" ? !questionAnswered : !input}
+                  className="px-4 sm:px-8 py-2 sm:py-3 rounded-md bg-black hover:bg-white hover:border hover:border-black text-white hover:text-black font-bold text-sm sm:text-lg"
+                >
+                  <span className="">Complete</span>
+                </Button>
+              </div>
             </div>
-            
-            {/* Hidden File Input */}
-            <input
-              ref={fileInputRef}
-              type="file"
-              multiple
-              accept=".pdf,.png,.jpg,.jpeg,.gif,.webp,.xls,.xlsx"
-              onChange={handleFileSelect}
-              className="hidden"
-            />
           </div>
         </div>
+      </div>
 
 
-        {/* Action Buttons - Outside the box */}
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-          <div className="flex flex-col sm:flex-row gap-2 justify-center sm:justify-start">
-            <Button 
-              onClick={getFeedback} 
-              disabled={!input.trim() || loading.feedback}
-              className="bg-primary hover:bg-primary/80 w-full sm:w-auto"
-            >
-              {loading.feedback ? "Loading..." : "Get Feedback"}
-            </Button>
-            
-            {/* Senior Example button only shows after feedback and hides after clicked */}
-            {feedback && !senior && (
-              <Button variant="outline" onClick={getSeniorExample} disabled={loading.senior} className="w-full sm:w-auto">
-                {loading.senior ? "Loading..." : "See how a Senior Would Do It"}
-              </Button>
-            )}
-          </div>
-
-          {/* Complete Task Button - Disabled until feedback received */}
-          <motion.div
-            whileTap={feedback ? { scale: 0.95 } : {}}
-            className="flex justify-center sm:justify-end"
-          >
-            <Button 
-              onClick={handleComplete}
-              disabled={!feedback}
-              className="bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 shadow-lg w-full sm:w-auto disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              Submit Task
-            </Button>
-          </motion.div>
-        </div>
-      </motion.div>
-
-      {/* Hint Popup - Bottom Left on Desktop, Top on Mobile */}
-      {hint && showHintPopup && (
-        <motion.div
-          initial={{ opacity: 0, y: 20, x: -20 }}
-          animate={{ opacity: 1, y: 0, x: 0 }}
-          exit={{ opacity: 0, y: 20 }}
-          transition={{ duration: 0.4, type: "spring" }}
-          className="fixed bottom-6 left-6 md:max-w-xs w-[calc(100%-3rem)] md:w-auto z-50 md:block hidden"
-        >
-          <Card className="border-2 border-yellow-400 dark:border-yellow-600 bg-yellow-50 dark:bg-yellow-950/90 shadow-2xl backdrop-blur-sm">
-            <CardContent className="">
-              <div className="flex items-start gap-3">
-                <div className="flex-1 min-w-0">
-                  <h4 className="font-semibold text-sm text-yellow-900 dark:text-yellow-100 mb-1">Hint</h4>
-                  <div className="text-sm text-yellow-800 dark:text-yellow-200 prose-sm max-w-none">
-                    <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                      {hint}
-                    </ReactMarkdown>
-                  </div>
-                </div>
-                <button
-                  onClick={() => setShowHintPopup(false)}
-                  className="flex-shrink-0 p-1 hover:bg-yellow-200 dark:hover:bg-yellow-900 rounded transition-colors"
-                >
-                  <X className="h-4 w-4 text-yellow-700 dark:text-yellow-300" />
-                </button>
-              </div>
-            </CardContent>
-          </Card>
-        </motion.div>
-      )}
-
-      {/* Hint Popup - Mobile (Top) */}
-      {hint && showHintPopup && (
-        <motion.div
-          initial={{ opacity: 0, y: -20 }}
-          animate={{ opacity: 1, y: 0 }}
-          exit={{ opacity: 0, y: -20 }}
-          transition={{ duration: 0.4, type: "spring" }}
-          className="md:hidden fixed top-6 left-3 right-3 z-50"
-        >
-          <Card className="border-2 border-yellow-400 dark:border-yellow-600 bg-yellow-50 dark:bg-yellow-950/95 shadow-2xl backdrop-blur-sm">
-            <CardContent className="p-4">
-              <div className="flex items-start gap-3">
-                <motion.div
-                  animate={{ rotate: [0, 15, -15, 0] }}
-                  transition={{ duration: 2, repeat: Infinity }}
-                  className="flex-shrink-0"
-                >
-                  <Lightbulb className="h-5 w-5 text-yellow-600 dark:text-yellow-400" />
-                </motion.div>
-                <div className="flex-1 min-w-0">
-                  <h4 className="font-semibold text-sm text-yellow-900 dark:text-yellow-100 mb-1">💡 Hint</h4>
-                  <div className="text-sm text-yellow-800 dark:text-yellow-200 prose-sm max-w-none">
-                    <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                      {hint}
-                    </ReactMarkdown>
-                  </div>
-                </div>
-                <button
-                  onClick={() => setShowHintPopup(false)}
-                  className="flex-shrink-0 p-1 hover:bg-yellow-200 dark:hover:bg-yellow-900 rounded transition-colors"
-                >
-                  <X className="h-4 w-4 text-yellow-700 dark:text-yellow-300" />
-                </button>
-              </div>
-            </CardContent>
-          </Card>
-        </motion.div>
-      )}
-
-      {/* Feedback - Gamified & Collapsable */}
-      {feedback && (
-        <motion.div
-          initial={{ opacity: 0, scale: 0.95, y: 20 }}
-          animate={{ opacity: 1, scale: 1, y: 0 }}
-          transition={{ duration: 0.5, type: "spring" }}
-          className="mb-6"
-        >
-          <Card>
-            <CardHeader 
-              className="cursor-pointer"
-              onClick={() => setIsFeedbackCollapsed(!isFeedbackCollapsed)}
-            >
-              <CardTitle className="flex items-center justify-between">
-                <span className="text-lg font-bold text-black">Feedback</span>
-                <motion.div
-                  animate={{ rotate: isFeedbackCollapsed ? 0 : 180 }}
-                  transition={{ duration: 0.3 }}
-                >
-                  <ChevronDown className="h-6 w-6" />
-                </motion.div>
-              </CardTitle>
-            </CardHeader>
-            {!isFeedbackCollapsed && (
-              <motion.div
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                transition={{ duration: 0.3 }}
-              >
-                <CardContent>
-                  <div className="prose prose-blue dark:prose-invert max-w-none">
-                    <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                      {feedback}
-                    </ReactMarkdown>
-                  </div>
-                </CardContent>
-              </motion.div>
-            )}
-          </Card>
-        </motion.div>
-      )}
 
       {/* Senior Example - Gamified & Collapsable */}
       {senior && (
@@ -623,6 +521,19 @@ export default function TaskPageClient({
             )}
           </Card>
         </motion.div>
+      )}
+
+      {/* Completion Screen */}
+      {completionResult && (
+        <CompletionScreen
+          isOpen={showCompletionScreen}
+          onClose={handleCompletionClose}
+          isCorrect={completionResult.isCorrect}
+          timeSpent={completionResult.timeSpent}
+          xpEarned={completionResult.xpEarned}
+          accuracy={completionResult.accuracy}
+          isNavigating={isNavigating}
+        />
       )}
 
     </div>
