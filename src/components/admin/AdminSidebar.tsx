@@ -10,7 +10,8 @@ import {
   Shield, 
   Filter,
   X,
-  LogOut
+  LogOut,
+  BarChart3
 } from 'lucide-react'
 import { useAdminAuth } from '@/lib/adminAuthClient'
 
@@ -35,6 +36,13 @@ const adminTabs = [
     icon: Activity,
     href: '/admin?tab=activity',
     description: 'Monitor user activity and system health'
+  },
+  {
+    id: 'experiment',
+    label: 'Experiment Analytics',
+    icon: BarChart3,
+    href: '/admin?tab=experiment',
+    description: 'Track fake door experiment performance'
   },
   {
     id: 'settings',

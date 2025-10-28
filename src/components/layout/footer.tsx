@@ -1,8 +1,13 @@
 // src/components/layout/footer.tsx
+'use client'
 import Link from 'next/link'
+import { usePathname } from 'next/navigation'
 import { Linkedin, Twitter, Instagram, Github, MessageCircle } from 'lucide-react'
 
 export default function Footer() {
+  const pathname = usePathname()
+  const isExperimentPage = pathname === '/experiment'
+  
   // Server-rendered year avoids client-side Date() hydration issues
   const year = new Date().getFullYear()
 
@@ -11,14 +16,25 @@ export default function Footer() {
       <div className="mx-auto max-w-7xl px-6 py-12 grid grid-cols-1 gap-10 sm:grid-cols-2 lg:grid-cols-5">
         {/* Logo + About */}
         <div className="sm:col-span-2">
-          <Link href="/" className="flex items-center group gap-2 mb-4">
-            <img
-              src="/logo.png"
-              alt="Leaply Logo"
-              className="h-8 w-8 rounded-md object-cover"
-            />
-            <span className="text-lg font-bold tracking-tight text-foreground">Leaply</span>
-          </Link>
+          {isExperimentPage ? (
+            <div className="flex items-center group gap-2 mb-4">
+              <img
+                src="/logo.png"
+                alt="Leaply Logo"
+                className="h-8 w-8 rounded-md object-cover"
+              />
+              <span className="text-lg font-bold tracking-tight text-foreground">Leaply</span>
+            </div>
+          ) : (
+            <Link href="/" className="flex items-center group gap-2 mb-4">
+              <img
+                src="/logo.png"
+                alt="Leaply Logo"
+                className="h-8 w-8 rounded-md object-cover"
+              />
+              <span className="text-lg font-bold tracking-tight text-foreground">Leaply</span>
+            </Link>
+          )}
           <p className="text-sm text-muted-foreground leading-relaxed max-w-xs">
             Leaply helps you explore and test-drive real corporate careers through short AI-powered simulations.
           </p>
@@ -51,33 +67,37 @@ export default function Footer() {
           </ul>
         </div> */}
 
-        <div>
-          <h4 className="font-semibold text-foreground mb-3">Product</h4>
-          <ul className="space-y-2 text-sm text-muted-foreground">
-            <li>
-              <Link href="/simulate" className="hover:text-foreground transition">All Roles</Link>
-            </li>
-            <li>
-              <Link href="/discover" className="hover:text-foreground transition">Career Discovery Assistant</Link>
-            </li>
-          </ul>
-        </div>
+        {!isExperimentPage && (
+          <div>
+            <h4 className="font-semibold text-foreground mb-3">Product</h4>
+            <ul className="space-y-2 text-sm text-muted-foreground">
+              <li>
+                <Link href="/simulate" className="hover:text-foreground transition">All Roles</Link>
+              </li>
+              <li>
+                <Link href="/discover" className="hover:text-foreground transition">Career Discovery Assistant</Link>
+              </li>
+            </ul>
+          </div>
+        )}
 
         {/* NOTE: removed the stray mt-5 that caused misalignment and mismatch */}
-        <div>
-          <h4 className="font-semibold text-foreground mb-3">Legal</h4>
-          <ul className="space-y-2 text-sm text-muted-foreground">
-            <li>
-              <Link href="/legal/terms" className="hover:text-foreground transition">Terms & Conditions</Link>
-            </li>
-            <li>
-              <Link href="/legal/privacy" className="hover:text-foreground transition">Privacy Policy</Link>
-            </li>
-            <li>
-              <Link href="/legal/cookies" className="hover:text-foreground transition">Cookies Policy</Link>
-            </li>
-          </ul>
-        </div>
+        {!isExperimentPage && (
+          <div>
+            <h4 className="font-semibold text-foreground mb-3">Legal</h4>
+            <ul className="space-y-2 text-sm text-muted-foreground">
+              <li>
+                <Link href="/legal/terms" className="hover:text-foreground transition">Terms & Conditions</Link>
+              </li>
+              <li>
+                <Link href="/legal/privacy" className="hover:text-foreground transition">Privacy Policy</Link>
+              </li>
+              <li>
+                <Link href="/legal/cookies" className="hover:text-foreground transition">Cookies Policy</Link>
+              </li>
+            </ul>
+          </div>
+        )}
       </div>
 
       <div className="border-t border-border/50 mt-8">

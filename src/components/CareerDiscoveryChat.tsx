@@ -5,6 +5,8 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Send, Expand, Minimize2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useAuth } from '@/lib/auth';
+import { getAvatarEmoji } from '@/lib/avatarUtils';
 
 type Msg = { from: 'bot' | 'you'; text: string };
 type QA = { q: string; a: string };
@@ -23,7 +25,9 @@ const FIRST_OPTIONS = [
 ];
 
 function Avatar({ kind }: { kind: 'bot' | 'you' }) {
+  const { user, profile } = useAuth();
   const isBot = kind === 'bot';
+  
   return (
     <div
       className={`flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full border shadow-sm ${
@@ -31,7 +35,7 @@ function Avatar({ kind }: { kind: 'bot' | 'you' }) {
       }`}
       aria-hidden
     >
-      {isBot ? '🤖' : '🤔'}
+      {isBot ? '🤖' : (user && profile ? getAvatarEmoji(profile.avatar) : '🤔')}
     </div>
   );
 }

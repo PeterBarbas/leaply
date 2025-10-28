@@ -148,62 +148,60 @@ export default function LeaderboardClient() {
   return (
     <div className="space-y-6 sm:space-y-8 pt-2">
       {/* Top 3 Pedestal */}
-      {/* Mobile: Vertical column layout - all users stacked one after another */}
-      <div className="block sm:hidden mb-8">
-        <div className="flex flex-col items-center gap-8">
-          {topThree.map((user, index) => (
-            <motion.div
-              key={user.id}
-              initial={{ opacity: 0, y: 50 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: index * 0.2, duration: 0.6 }}
-              className="flex flex-col items-center mb-4"
-            >
-              {/* Pedestal */}
-              <div className={`w-20 ${getPedestalHeight(index)} bg-gradient-to-t ${getRankColor(index)} rounded-t-lg shadow-lg relative`}>
-              </div>
-              
-              {/* User Card */}
+      {/* Mobile: Horizontal layout like desktop (Silver, Gold, Bronze) */}
+      <div className="block sm:hidden mb-8 mx-auto max-w-[320px]">
+        <div className="flex items-end justify-center gap-2">
+          {[1, 0, 2].map((rankIndex, pos) => {
+            const user = topThree[rankIndex];
+            if (!user) return null;
+            return (
               <motion.div
-                initial={{ scale: 0.8 }}
-                animate={{ scale: 1 }}
-                transition={{ delay: index * 0.2 + 0.3, duration: 0.4 }}
-                className="relative -mt-3"
+                key={user.id}
+                initial={{ opacity: 0, y: 40 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: pos * 0.15, duration: 0.5 }}
+                className="flex flex-col items-center"
               >
-                <Card className="w-32 p-3 text-center shadow-lg border-2 border-primary/20">
-                  <CardContent className="p-0">
-                    {/* Profile Image */}
-                    <div className="flex justify-center mb-2">
-                      <div className="w-10 h-10 rounded-full bg-gradient-to-br from-primary to-purple-500 flex items-center justify-center text-white text-base font-bold shadow-sm">
-                        {getAvatarEmoji(user.avatar)}
-                      </div>
-                    </div>
-                    
-                    {/* Name */}
-                    <h3 className="font-semibold text-sm mb-1 truncate">{user.name}</h3>
-                    
-                    {/* Stats */}
-                    <div className="space-y-1 text-xs text-muted-foreground">
-                      <div className="flex items-center justify-center mb-1">
-                        Level {user.level}
+                {/* Pedestal */}
+                <div className={`w-14 ${getPedestalHeight(rankIndex)} bg-gradient-to-t ${getRankColor(rankIndex)} rounded-t-lg shadow-lg relative`}></div>
+
+                {/* User Card */}
+                <motion.div
+                  initial={{ scale: 0.9 }}
+                  animate={{ scale: 1 }}
+                  transition={{ delay: 0.25 + pos * 0.15, duration: 0.35 }}
+                  className="relative -mt-3"
+                >
+                  <Card className="w-24 p-2.5 text-center shadow-lg border-2 border-primary/20">
+                    <CardContent className="p-0">
+                      {/* Profile Image */}
+                      <div className="flex justify-center mb-1.5">
+                        <div className="w-9 h-9 rounded-full bg-primary flex items-center justify-center text-white text-sm font-bold shadow-sm">
+                          {getAvatarEmoji(user.avatar)}
+                        </div>
                       </div>
 
-                    </div>
-                    
-                    {/* XP Badge */}
-                    <Badge className="mt-1 bg-primary/10 text-primary border-primary/20 text-xs">
-                      {user.totalXp} XP
-                    </Badge>
-                  </CardContent>
-                </Card>
+                      {/* Name */}
+                      <h3 className="font-semibold text-[11px] mb-0.5 truncate">{user.name}</h3>
+
+                      {/* Level */}
+                      <div className="text-[10px] text-muted-foreground mb-0.5">Level {user.level}</div>
+
+                      {/* XP Badge */}
+                      <Badge className="mt-0.5 bg-primary/10 text-primary border-primary/20 text-[10px]">
+                        {user.totalXp} XP
+                      </Badge>
+                    </CardContent>
+                  </Card>
+                </motion.div>
               </motion.div>
-            </motion.div>
-          ))}
+            );
+          })}
         </div>
       </div>
 
       {/* Desktop: Horizontal layout with gold in the middle */}
-      <div className="hidden sm:flex justify-center items-end gap-6 lg:gap-8 mb-8 sm:mb-12">
+      <div className="hidden sm:flex justify-center items-end gap-6 lg:gap-8 mb-8 sm:mb-12 sm:mx-auto sm:max-w-4xl">
         {/* Silver (2nd place) - Left */}
         {topThree[1] && (
           <motion.div
@@ -228,7 +226,7 @@ export default function LeaderboardClient() {
                 <CardContent className="p-0">
                   {/* Profile Image */}
                   <div className="flex justify-center mb-3">
-                    <div className="w-10 h-10 lg:w-12 lg:h-12 rounded-full bg-gradient-to-br from-primary to-purple-500 flex items-center justify-center text-white text-base lg:text-lg font-bold shadow-sm">
+                    <div className="w-10 h-10 lg:w-12 lg:h-12 rounded-full bg-primary flex items-center justify-center text-white text-xl lg:text-2xl font-bold shadow-sm">
                       {getAvatarEmoji(topThree[1].avatar)}
                     </div>
                   </div>
@@ -242,11 +240,6 @@ export default function LeaderboardClient() {
                       <Target className="h-3 w-3" />
                       <span className="hidden lg:inline">Level {topThree[1].level}</span>
                       <span className="lg:hidden">L{topThree[1].level}</span>
-                    </div>
-                    <div className="flex items-center justify-center gap-1">
-                      <BarChart3 className="h-3 w-3" />
-                      <span className="hidden lg:inline">{topThree[1].totalCompletedSimulations} simulations</span>
-                      <span className="lg:hidden">{topThree[1].totalCompletedSimulations}</span>
                     </div>
                   </div>
                   
@@ -284,7 +277,7 @@ export default function LeaderboardClient() {
                 <CardContent className="p-0">
                   {/* Profile Image */}
                   <div className="flex justify-center mb-3">
-                    <div className="w-10 h-10 lg:w-12 lg:h-12 rounded-full bg-gradient-to-br from-primary to-purple-500 flex items-center justify-center text-white text-base lg:text-lg font-bold shadow-sm">
+                    <div className="w-10 h-10 lg:w-12 lg:h-12 rounded-full bg-primary flex items-center justify-center text-white text-xl lg:text-2xl font-bold shadow-sm">
                       {getAvatarEmoji(topThree[0].avatar)}
                     </div>
                   </div>
@@ -298,11 +291,6 @@ export default function LeaderboardClient() {
                       <Target className="h-3 w-3" />
                       <span className="hidden lg:inline">Level {topThree[0].level}</span>
                       <span className="lg:hidden">L{topThree[0].level}</span>
-                    </div>
-                    <div className="flex items-center justify-center gap-1">
-                      <BarChart3 className="h-3 w-3" />
-                      <span className="hidden lg:inline">{topThree[0].totalCompletedSimulations} simulations</span>
-                      <span className="lg:hidden">{topThree[0].totalCompletedSimulations}</span>
                     </div>
                   </div>
                   
@@ -340,7 +328,7 @@ export default function LeaderboardClient() {
                 <CardContent className="p-0">
                   {/* Profile Image */}
                   <div className="flex justify-center mb-3">
-                    <div className="w-10 h-10 lg:w-12 lg:h-12 rounded-full bg-gradient-to-br from-primary to-purple-500 flex items-center justify-center text-white text-base lg:text-lg font-bold shadow-sm">
+                    <div className="w-10 h-10 lg:w-12 lg:h-12 rounded-full bg-primary flex items-center justify-center text-white text-xl lg:text-2xl font-bold shadow-sm">
                       {getAvatarEmoji(topThree[2].avatar)}
                     </div>
                   </div>
@@ -354,11 +342,6 @@ export default function LeaderboardClient() {
                       <Target className="h-3 w-3" />
                       <span className="hidden lg:inline">Level {topThree[2].level}</span>
                       <span className="lg:hidden">L{topThree[2].level}</span>
-                    </div>
-                    <div className="flex items-center justify-center gap-1">
-                      <BarChart3 className="h-3 w-3" />
-                      <span className="hidden lg:inline">{topThree[2].totalCompletedSimulations} simulations</span>
-                      <span className="lg:hidden">{topThree[2].totalCompletedSimulations}</span>
                     </div>
                   </div>
                   
@@ -375,11 +358,7 @@ export default function LeaderboardClient() {
 
       {/* Rest of the Leaderboard */}
       {rest.length > 0 && (
-        <div className="space-y-3">
-          <h2 className="text-lg sm:text-xl font-semibold text-foreground mb-3 sm:mb-4 flex items-center gap-2">
-            <Star className="h-4 w-4 sm:h-5 sm:w-5" />
-            Complete Rankings
-          </h2>
+        <div className="space-y-3 mx-auto max-w-[320px] sm:max-w-4xl">
           
           {rest.map((user, index) => (
             <motion.div
@@ -388,7 +367,7 @@ export default function LeaderboardClient() {
               animate={{ opacity: 1, x: 0 }}
               transition={{ delay: 0.6 + index * 0.1, duration: 0.4 }}
             >
-              <Card className="hover:shadow-md transition-shadow">
+              <Card>
                 <CardContent className="p-3 sm:p-4">
                   <div className="flex items-center gap-3 sm:gap-4">
                     {/* Rank */}
@@ -398,7 +377,7 @@ export default function LeaderboardClient() {
                     
                     {/* Profile Image */}
                     <div className="flex-shrink-0">
-                      <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-gradient-to-br from-primary to-purple-500 flex items-center justify-center text-white text-xs sm:text-sm font-bold shadow-sm">
+                      <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-primary flex items-center justify-center text-white text-base sm:text-lg font-bold shadow-sm">
                         {getAvatarEmoji(user.avatar)}
                       </div>
                     </div>
@@ -411,11 +390,6 @@ export default function LeaderboardClient() {
                           <Target className="h-2 w-2 sm:h-3 sm:w-3 flex-shrink-0" />
                           <span className="hidden sm:inline">Level {user.level}</span>
                           <span className="sm:hidden">L{user.level}</span>
-                        </span>
-                        <span className="flex items-center gap-1">
-                          <BarChart3 className="h-2 w-2 sm:h-3 sm:w-3 flex-shrink-0" />
-                          <span className="hidden sm:inline">{user.totalCompletedSimulations} simulations</span>
-                          <span className="sm:hidden">{user.totalCompletedSimulations} sims</span>
                         </span>
                       </div>
                     </div>

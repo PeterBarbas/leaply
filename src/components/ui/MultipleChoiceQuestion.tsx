@@ -19,6 +19,7 @@ interface MultipleChoiceQuestionProps {
 export interface MultipleChoiceQuestionRef {
   finalizeAnswer: () => void;
   hasSelection: boolean;
+  selectedIndex: number | null;
 }
 
 const MultipleChoiceQuestion = forwardRef<MultipleChoiceQuestionRef, MultipleChoiceQuestionProps>(({
@@ -48,16 +49,15 @@ const MultipleChoiceQuestion = forwardRef<MultipleChoiceQuestionRef, MultipleCho
     const bottomBorderColor = `border-b-${baseColor}-600`;
     
     if (selectedIndex === index) {
-      return `${borderColor} shadow-lg transform scale-95 border-b-4 ${bottomBorderColor}`;
+      return `${borderColor} shadow-lg border-b-4 ${bottomBorderColor}`;
     }
     return `${borderColor} shadow-lg hover:shadow-xl transform hover:scale-105 transition-all duration-200 border-b-4 ${bottomBorderColor}`;
   };
 
   const getIcon = (index: number) => {
     // Always show selection state, no final answer states
-    const iconColor = color === 'orange' ? 'orange' : 'blue';
     return selectedIndex === index ? (
-      <Circle className={`h-5 w-5 text-${iconColor}-500 fill-${iconColor}-500`} />
+      <Circle className="h-5 w-5 text-primary fill-primary" />
     ) : (
       <Circle className="h-5 w-5 text-gray-400" />
     );
@@ -75,7 +75,8 @@ const MultipleChoiceQuestion = forwardRef<MultipleChoiceQuestionRef, MultipleCho
   // Expose the finalize method to parent component
   useImperativeHandle(ref, () => ({
     finalizeAnswer,
-    hasSelection: selectedIndex !== null
+    hasSelection: selectedIndex !== null,
+    selectedIndex
   }));
 
   return (

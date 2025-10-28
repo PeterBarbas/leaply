@@ -56,7 +56,7 @@ export default function Home() {
                 className="mt-4 text-4xl font-semibold tracking-tight text-foreground sm:text-5xl"
               >
                 Your next career move,{' '}
-                <span className="bg-gradient-to-r from-indigo-500 via-fuchsia-500 to-sky-500 bg-clip-text text-transparent">
+                <span className="text-primary">
                   powered by experience{' '}
                 </span>
                 not guesswork.

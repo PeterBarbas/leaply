@@ -200,30 +200,42 @@ export default function TaskPageClient({
   }
 
   const handleComplete = async () => {
-    // For multiple choice, finalize the answer first
+    // For multiple choice: compute correctness immediately from ref and show popup in one click
     if (task.expected_input?.type === "multiple_choice") {
-      if (!multipleChoiceRef.current?.hasSelection) return;
-      multipleChoiceRef.current.finalizeAnswer();
-      // Wait a bit for the answer to be processed
-      await new Promise(resolve => setTimeout(resolve, 100));
+      const refApi = multipleChoiceRef.current;
+      if (!refApi?.hasSelection) return;
+      // Determine correctness synchronously
+      const selected = refApi.selectedIndex;
+      const isCorrect = selected === task.expected_input.correct_answer;
+      // Persist answer via existing API so onAnswer side-effects run
+      refApi.finalizeAnswer();
+      // Small tick to allow state to settle (keeps UI snappy without needing a second click)
+      await Promise.resolve();
+
+      const timeSpent = "1:32";
+      const taskLevel = task.stage || 1;
+      const xpEarned = calculateXP(taskLevel, isCorrect);
+      const accuracy = isCorrect ? 100 : 50;
+
+      playCompletionSound();
+      setQuestionAnswered(true);
+      setQuestionResult({ isCorrect, explanation: task.expected_input.explanation });
+      setCompletionResult({ isCorrect, timeSpent, xpEarned, accuracy });
+      setShowCompletionScreen(true);
+      return;
     }
-    
-    // For interactive questions, can complete if question has been answered
-    // For text-based tasks, can complete if input is provided
-    if ((task.expected_input?.type === "multiple_choice" || task.expected_input?.type === "drag_drop") && !questionAnswered) return;
+
+    // For drag_drop/text flows, keep existing gating
+    if ((task.expected_input?.type === "drag_drop") && !questionAnswered) return;
     if (task.expected_input?.type === "text" && !input.trim()) return;
-    
-    // Calculate completion metrics
-    const isCorrect = questionResult?.isCorrect ?? true; // Default to true for text-based tasks
-    const timeSpent = "1:32"; // This could be calculated based on actual time
-    const taskLevel = task.stage || 1; // Get task difficulty level
+
+    const isCorrect = questionResult?.isCorrect ?? true;
+    const timeSpent = "1:32";
+    const taskLevel = task.stage || 1;
     const xpEarned = calculateXP(taskLevel, isCorrect);
     const accuracy = isCorrect ? 100 : 50;
-    
-    // Play completion sound
+
     playCompletionSound();
-    
-    // Set completion result and show screen
     setCompletionResult({ isCorrect, timeSpent, xpEarned, accuracy });
     setShowCompletionScreen(true);
   };

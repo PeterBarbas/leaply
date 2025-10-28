@@ -78,14 +78,6 @@ export default function CompletionScreen({
                   <span>{accuracy}%</span>
                 </div>
               </div>
-
-              <div className="bg-white/20 backdrop-blur-sm rounded-2xl p-4 text-center border border-white/30 shadow-lg">
-                <div className="text-white/90 text-sm font-medium mb-1">SPEEDY</div>
-                <div className="flex items-center justify-center space-x-2 text-white text-2xl font-bold">
-                  <Clock className="h-6 w-6 text-blue-300" />
-                  <span>{timeSpent}</span>
-                </div>
-              </div>
             </motion.div>
           </div>
 
@@ -168,14 +160,6 @@ export default function CompletionScreen({
                 <div className="flex items-center justify-center space-x-2 text-white text-2xl font-bold">
                   <Target className="h-6 w-6 text-green-300" />
                   <span>{accuracy}%</span>
-                </div>
-              </div>
-
-              <div className="bg-white/20 backdrop-blur-sm rounded-2xl p-4 text-center border border-white/30 shadow-lg">
-                <div className="text-white/90 text-sm font-medium mb-1">SPEEDY</div>
-                <div className="flex items-center justify-center space-x-2 text-white text-2xl font-bold">
-                  <Clock className="h-6 w-6 text-blue-300" />
-                  <span>{timeSpent}</span>
                 </div>
               </div>
             </motion.div>

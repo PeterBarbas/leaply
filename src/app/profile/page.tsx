@@ -183,7 +183,7 @@ export default function ProfilePage() {
               {/* Avatar & Level */}
               <div className="flex flex-col items-center">
                 <div className="relative">
-                  <div className="w-24 h-24 rounded-full bg-gradient-to-br from-primary to-purple-500 flex items-center justify-center text-white text-2xl font-bold shadow-lg">
+                  <div className="w-24 h-24 rounded-full bg-primary flex items-center justify-center text-white text-6xl font-bold shadow-lg">
                     {getAvatarEmoji(profile?.avatar)}
                   </div>
                   <div className="absolute -bottom-2 -right-2 bg-yellow-400 text-yellow-900 px-2 py-1 rounded-full text-xs font-bold flex items-center gap-1">

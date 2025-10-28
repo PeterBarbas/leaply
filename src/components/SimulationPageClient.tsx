@@ -247,6 +247,43 @@ export default function SimulationPageClient({
     return "locked";
   };
 
+  // Compute the active (next) lesson index to focus/scroll into view
+  const getActiveLessonIndex = (): number => {
+    for (let i = 0; i < tasks.length; i++) {
+      const status = getTaskStatus(i);
+      if (status === "available" || status === "current") return i;
+    }
+    // If everything is completed, focus last task
+    return Math.max(0, tasks.length - 1);
+  };
+
+  // Scroll into view of the active lesson when landing on the stages page
+  useEffect(() => {
+    // Immediate scroll attempt
+    const scrollToActive = () => {
+      const activeIndex = getActiveLessonIndex();
+      const isMobile = typeof window !== 'undefined' && window.matchMedia && window.matchMedia('(max-width: 767px)').matches;
+      const id = isMobile ? `task-mobile-${activeIndex}` : `task-desktop-${activeIndex}`;
+      const el = document.getElementById(id) || document.getElementById(`task-${activeIndex}`);
+      if (el) {
+        el.scrollIntoView({ behavior: "smooth", block: "center", inline: "center" });
+        return true;
+      }
+      return false;
+    };
+
+    // Try immediately, then with small delays if elements aren't ready
+    if (!scrollToActive()) {
+      const timer1 = setTimeout(() => {
+        if (!scrollToActive()) {
+          const timer2 = setTimeout(scrollToActive, 200);
+          return () => clearTimeout(timer2);
+        }
+      }, 100);
+      return () => clearTimeout(timer1);
+    }
+  }, [localCompletedTasks, tasks.length]);
+
   const getTaskIcon = (index: number) => {
     const status = getTaskStatus(index);
     switch (status) {
@@ -340,6 +377,19 @@ export default function SimulationPageClient({
         return "from-red-400 via-red-500 to-pink-600";
       default:
         return "from-gray-400 via-gray-500 to-gray-600";
+    }
+  };
+
+  const getStageShadow = (stage: number) => {
+    switch (stage) {
+      case 1:
+        return "shadow-xl shadow-blue-500/50";
+      case 2:
+        return "shadow-xl shadow-orange-500/50";
+      case 3:
+        return "shadow-xl shadow-red-500/50";
+      default:
+        return "shadow-xl shadow-gray-500/50";
     }
   };
 
@@ -518,19 +568,11 @@ export default function SimulationPageClient({
                           const isLocked = status === "locked";
                           const isClickable = !isCompleted && !isLocked;
 
-                          const isInvertedS = stageNumber % 2 === 0;
-
-                          const totalTasks = stageTasks.length;
-                          const midPoint = (totalTasks - 1) / 2;
-                          const safeMid = midPoint === 0 ? 1 : midPoint; // avoid divide-by-zero
-                          const distanceFromMid = Math.abs(stageIndex - midPoint);
-                          const maxLift = isInvertedS ? -60 : 60;
-                          const lift = isInvertedS
-                            ? maxLift + (distanceFromMid / safeMid) * Math.abs(maxLift)
-                            : maxLift - (distanceFromMid / safeMid) * Math.abs(maxLift);
+                          // Straight line layout: remove S-curve vertical lift
+                          const lift = 0;
 
                           return (
-                            <motion.div
+                                <motion.div
                               key={index}
                               initial={{ opacity: 0, scale: 0.3, y: 20 }}
                               animate={{ opacity: 1, scale: 1, y: lift }}
@@ -542,6 +584,7 @@ export default function SimulationPageClient({
                                 damping: 20,
                               }}
                               className="relative flex flex-col items-center"
+                                  id={`task-desktop-${index}`}
                             >
                               <motion.div
                                 whileHover={
@@ -580,7 +623,7 @@ export default function SimulationPageClient({
                                       ? "bg-gradient-to-br from-gray-300 via-gray-400 to-gray-500 shadow-lg opacity-60"
                                       : `bg-gradient-to-br ${getStageGradient(
                                           task.stage || 1
-                                        )} shadow-xl shadow-blue-500/50`
+                                        )} ${getStageShadow(task.stage || 1)}`
                                   } ${
                                     isClickable
                                       ? "cursor-pointer hover:shadow-2xl"
@@ -711,18 +754,8 @@ export default function SimulationPageClient({
                           const isLocked = status === "locked";
                           const isClickable = !isCompleted && !isLocked;
 
-                          const isInvertedS = stageNumber % 2 === 0;
-
-                          const totalTasks = stageTasks.length;
-                          const midPoint = (totalTasks - 1) / 2;
-                          const safeMid = midPoint === 0 ? 1 : midPoint;
-                          const distanceFromMid = Math.abs(stageIndex - midPoint);
-                          const maxShift = isInvertedS ? -40 : 40;
-                          const shift = isInvertedS
-                            ? maxShift +
-                              (distanceFromMid / safeMid) * Math.abs(maxShift)
-                            : maxShift -
-                              (distanceFromMid / safeMid) * Math.abs(maxShift);
+                          // Straight line layout: remove S-curve horizontal shift on mobile
+                          const shift = 0;
 
                           return (
                             <motion.div
@@ -737,6 +770,7 @@ export default function SimulationPageClient({
                                 damping: 20,
                               }}
                               className="relative flex flex-col items-center"
+                              id={`task-mobile-${index}`}
                             >
                               <motion.div
                                 whileHover={
@@ -775,7 +809,7 @@ export default function SimulationPageClient({
                                       ? "bg-gradient-to-br from-gray-300 via-gray-400 to-gray-500 shadow-lg opacity-60"
                                       : `bg-gradient-to-br ${getStageGradient(
                                           task.stage || 1
-                                        )} shadow-xl shadow-blue-500/50`
+                                        )} ${getStageShadow(task.stage || 1)}`
                                   } ${
                                     isClickable
                                       ? "cursor-pointer hover:shadow-2xl"

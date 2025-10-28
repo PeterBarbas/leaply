@@ -22,6 +22,8 @@ export default function Header() {
   const panelRef = useRef<HTMLDivElement | null>(null)
   const btnRef = useRef<HTMLButtonElement | null>(null)
   const userMenuRef = useRef<HTMLDivElement | null>(null)
+  
+  const isExperimentPage = pathname === '/experiment'
 
   // Close the mobile menu on route change
   useEffect(() => {
@@ -74,47 +76,63 @@ export default function Header() {
         {/* Top row: fixed height on mobile so logo & burger don't move */}
         <div className="flex h-14 md:h-16 items-center justify-between">
           {/* Logo */}
-          <Link href="/" className="flex items-center gap-2 group">
-            <img
-              src="/logo.png"
-              alt="Leaply Logo"
-              className="h-8 w-8 rounded-md object-cover"
-            />
-            <span className="text-lg font-bold tracking-tight text-foreground">
-              Leaply
-            </span>
-          </Link>
+          {isExperimentPage ? (
+            <div className="flex items-center gap-2">
+              <img
+                src="/logo.png"
+                alt="Leaply Logo"
+                className="h-8 w-8 rounded-md object-cover"
+              />
+              <span className="text-lg font-bold tracking-tight text-foreground">
+                Leaply
+              </span>
+            </div>
+          ) : (
+            <Link href="/" className="flex items-center gap-2 group">
+              <img
+                src="/logo.png"
+                alt="Leaply Logo"
+                className="h-8 w-8 rounded-md object-cover"
+              />
+              <span className="text-lg font-bold tracking-tight text-foreground">
+                Leaply
+              </span>
+            </Link>
+          )}
 
           {/* Desktop nav */}
-          <nav className="hidden md:flex items-center gap-6 text-sm font-medium">
-            {navItems.map((item) => {
-              const isActive = pathname === item.href
-              return (
-                <Link
-                  key={item.href}
-                  href={item.href}
-                  className={[
-                    'transition-colors font-regular',
-                    isActive
-                      ? 'text-primary'
-                      : 'text-foreground/70',
-                  ].join(' ')}
-                >
-                  {item.label}
-                </Link>
-              )
-            })}
-          </nav>
+          {!isExperimentPage && (
+            <nav className="hidden md:flex items-center gap-6 text-sm font-medium">
+              {navItems.map((item) => {
+                const isActive = pathname === item.href
+                return (
+                  <Link
+                    key={item.href}
+                    href={item.href}
+                    className={[
+                      'transition-colors font-regular',
+                      isActive
+                        ? 'text-primary'
+                        : 'text-foreground/70',
+                    ].join(' ')}
+                  >
+                    {item.label}
+                  </Link>
+                )
+              })}
+            </nav>
+          )}
 
           {/* User Menu */}
-          <div className="hidden md:flex items-center gap-4">
-            {user ? (
+          {!isExperimentPage && (
+            <div className="hidden md:flex items-center gap-4">
+              {user ? (
               <div className="relative" ref={userMenuRef}>
                 <button
                   onClick={() => setUserMenuOpen(!userMenuOpen)}
                   className="flex items-center gap-2 p-2 rounded-md hover:bg-foreground/5 transition-colors"
                 >
-                  <div className="w-8 h-8 rounded-full bg-gradient-to-br from-primary to-purple-500 flex items-center justify-center text-white text-sm font-bold shadow-sm">
+                  <div className="w-7 h-7 rounded-full bg-primary flex items-center justify-center text-white text-base font-bold shadow-sm">
                     {getAvatarEmoji(profile?.avatar)}
                   </div>
                   <span className="text-sm font-medium text-foreground">
@@ -163,35 +181,39 @@ export default function Header() {
               </div>
             )}
           </div>
+          )}
 
           {/* Burger (mobile) */}
-          <button
-            ref={btnRef}
-            type="button"
-            aria-label={open ? 'Close menu' : 'Open menu'}
-            aria-haspopup="menu"
-            aria-expanded={open}
-            onClick={() => setOpen((v) => !v)}
-            className="md:hidden inline-flex h-9 w-9 items-center justify-center rounded-md border border-border/50 bg-background/70 hover:bg-foreground/5 transition"
-          >
-            {open ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
-          </button>
+          {!isExperimentPage && (
+            <button
+              ref={btnRef}
+              type="button"
+              aria-label={open ? 'Close menu' : 'Open menu'}
+              aria-haspopup="menu"
+              aria-expanded={open}
+              onClick={() => setOpen((v) => !v)}
+              className="md:hidden inline-flex h-9 w-9 items-center justify-center rounded-md border border-border/50 bg-background/70 hover:bg-foreground/5 transition"
+            >
+              {open ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+            </button>
+          )}
         </div>
 
         {/* Mobile panel: absolutely positioned under the row, smooth open/close */}
-        <div
-          ref={panelRef}
-          aria-hidden={!open}
-          className={[
-            'md:hidden absolute left-4 right-4 top-full',
-            // animation: height + opacity + slight slide
-            'overflow-hidden rounded-xl border border-border/50 bg-background shadow-lg backdrop-blur-sm',
-            'transition-[max-height,opacity,transform] duration-250 ease-out will-change-[max-height,opacity,transform]',
-            open
-              ? 'max-h-[60vh] opacity-100 translate-y-1'
-              : 'max-h-0 opacity-0 -translate-y-1 pointer-events-none',
-          ].join(' ')}
-        >
+        {!isExperimentPage && (
+          <div
+            ref={panelRef}
+            aria-hidden={!open}
+            className={[
+              'md:hidden absolute left-4 right-4 top-full',
+              // animation: height + opacity + slight slide
+              'overflow-hidden rounded-xl border border-border/50 bg-background shadow-lg backdrop-blur-sm',
+              'transition-[max-height,opacity,transform] duration-250 ease-out will-change-[max-height,opacity,transform]',
+              open
+                ? 'max-h-[60vh] opacity-100 translate-y-1'
+                : 'max-h-0 opacity-0 -translate-y-1 pointer-events-none',
+            ].join(' ')}
+          >
           <nav role="menu" aria-label="Mobile">
             <ul className="py-2">
               {navItems.map((item) => {
@@ -221,7 +243,7 @@ export default function Header() {
                 {user ? (
                   <>
                     <div className="px-4 py-2 flex items-center gap-3">
-                      <div className="w-8 h-8 rounded-full bg-gradient-to-br from-primary to-purple-500 flex items-center justify-center text-white text-sm font-bold shadow-sm">
+                      <div className="w-8 h-8 rounded-full bg-primary flex items-center justify-center text-white text-base font-bold shadow-sm">
                         {getAvatarEmoji(profile?.avatar)}
                       </div>
                       <div>
@@ -283,6 +305,7 @@ export default function Header() {
             </ul>
           </nav>
         </div>
+        )}
 
         {/* A little bottom padding so the absolutely-positioned panel has space to render */}
         <div className="h-0 md:h-0" />

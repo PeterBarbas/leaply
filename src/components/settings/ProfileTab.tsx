@@ -129,7 +129,7 @@ export default function ProfileTab() {
       {/* Profile Header */}
       <div className="flex flex-col sm:flex-row items-center sm:items-start gap-4 sm:gap-6">
         <div className="relative">
-          <div className="h-16 w-16 sm:h-20 sm:w-20 rounded-full bg-gradient-to-br from-primary to-purple-500 flex items-center justify-center text-white text-2xl sm:text-3xl font-bold shadow-lg">
+          <div className="h-16 w-16 sm:h-20 sm:w-20 rounded-full bg-primary flex items-center justify-center text-white text-4xl sm:text-5xl font-bold shadow-lg">
             {getAvatarEmoji(formData.avatar || profile?.avatar || 'avatar1')}
           </div>
         </div>

@@ -11,7 +11,7 @@
   --card-foreground: 222.2 84% 4.9%;
   --popover: 0 0% 100%;
   --popover-foreground: 222.2 84% 4.9%;
-  --primary: 221.2 83.2% 53.3%;
+  --primary: 231 85% 45%;
   --primary-foreground: 210 40% 98%;
   --secondary: 210 40% 96.1%;
   --secondary-foreground: 222.2 47.4% 11.2%;
@@ -22,7 +22,7 @@
   --destructive: 0 72% 51%;
   --border: 214.3 31.8% 91.4%;
   --input: 214.3 31.8% 91.4%;
-  --ring: 221.2 83.2% 53.3%;
+  --ring: 231 85% 45%;
 }
 
 .dark {
@@ -32,7 +32,7 @@
   --card-foreground: 210 40% 98%;
   --popover: 222.2 84% 4.9%;
   --popover-foreground: 210 40% 98%;
-  --primary: 217.2 91.2% 59.8%;
+  --primary: 231 85% 55%;
   --primary-foreground: 210 40% 98%;
   --secondary: 217.2 32.6% 17.5%;
   --secondary-foreground: 210 40% 98%;
@@ -43,7 +43,7 @@
   --destructive: 0 62.8% 30.6%;
   --border: 217.2 32.6% 17.5%;
   --input: 217.2 32.6% 17.5%;
-  --ring: 224.3 76.3% 48%;
+  --ring: 231 85% 55%;
 }
 
 @layer base {
@@ -88,4 +88,14 @@
       z-index: 10;
     }
   }
+}
+
+/* Hide Cookiebot widget on signup pages */
+body[data-pathname*="/auth/signup"] #CybotCookiebotDialog,
+body[data-pathname*="/auth/signup"] iframe[src*="cookiebot"],
+body[data-pathname*="/auth/signup"] .CybotCookiebotDialog {
+  display: none !important;
+  visibility: hidden !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
 }

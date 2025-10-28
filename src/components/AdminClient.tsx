@@ -7,6 +7,7 @@ import SimulationManagementTab from "./admin/SimulationManagementTab";
 import UserManagementTab from "./admin/UserManagementTab";
 import ActivityMonitorTab from "./admin/ActivityMonitorTab";
 import AdminSettingsTab from "./admin/AdminSettingsTab";
+import ExperimentAnalyticsTab from "./admin/ExperimentAnalyticsTab";
 
 export default function AdminClient() {
   const searchParams = useSearchParams();
@@ -38,6 +39,8 @@ export default function AdminClient() {
         return <UserManagementTab />;
       case "activity":
         return <ActivityMonitorTab />;
+      case "experiment":
+        return <ExperimentAnalyticsTab />;
       case "settings":
         return <AdminSettingsTab />;
       default:

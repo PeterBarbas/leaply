@@ -6,6 +6,7 @@ import Header from '@/components/layout/header'
 import Footer from '@/components/layout/footer'
 import { AuthProvider } from '@/lib/auth'
 import ConditionalLayout from '@/components/layout/ConditionalLayout'
+import PathnameProvider from '@/components/PathnameProvider'
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -36,6 +37,7 @@ export default function RootLayout({
           data-blockingmode="manual"
           strategy="afterInteractive"
         />
+        <PathnameProvider />
         <AuthProvider>
           <ConditionalLayout>
             {children}
