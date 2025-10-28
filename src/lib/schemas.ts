@@ -72,6 +72,8 @@ export const ProfileUpdateSchema = z.object({
   avatar: z.enum(['avatar1', 'avatar2', 'avatar3', 'avatar4', 'avatar5']).optional(),
   interests: z.array(z.string()).optional(),
   bio: z.string().max(500, "Bio must be less than 500 characters").optional(),
+  career_goal: z.string().optional(),
+  experience_level: z.string().optional(),
 });
 
 export type SignUpData = z.infer<typeof SignUpSchema>;
@@ -91,6 +93,8 @@ export interface UserProfile {
   avatar?: 'avatar1' | 'avatar2' | 'avatar3' | 'avatar4' | 'avatar5';
   interests?: string[];
   bio?: string;
+  career_goal?: string;
+  experience_level?: string;
   created_at: string;
   updated_at: string;
 }
