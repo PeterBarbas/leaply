@@ -39,7 +39,7 @@ const stepConfig = {
 
 export default function GamifiedSignUpWizard({ onSuccess, onSwitchToSignIn }: GamifiedSignUpWizardProps) {
   const router = useRouter()
-  const { signUp } = useAuth()
+  const { signUp, updateProfile } = useAuth()
   const [currentStep, setCurrentStep] = useState<WizardStep>('personal')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -105,26 +105,18 @@ export default function GamifiedSignUpWizard({ onSuccess, onSwitchToSignIn }: Ga
         try {
           // Wait a moment for the user profile to be created
           await new Promise(resolve => setTimeout(resolve, 1000))
-          
-          // Update the user profile with additional signup data
-          const profileUpdateData = {
+
+          // Persist additional signup data to the user's profile via RLS
+          const { error: updErr } = await updateProfile({
+            name: formData.name,
             interests: formData.interests,
-            bio: formData.careerGoal ? `Career Goal: ${formData.careerGoal}` : undefined,
-            location: formData.experience ? `Experience Level: ${formData.experience}` : undefined,
-            avatar: formData.avatar
-          }
-          
-          // Call the profile update API
-          const response = await fetch('/api/user/profile', {
-            method: 'PATCH',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify(profileUpdateData),
+            career_goal: formData.careerGoal,
+            experience_level: formData.experience,
+            avatar: formData.avatar,
           })
-          
-          if (!response.ok) {
-            console.warn('Failed to save additional profile data:', await response.text())
+
+          if (updErr) {
+            console.warn('Failed to save additional profile data:', updErr.message)
             // Don't fail the signup process if profile update fails
           }
         } catch (profileError) {

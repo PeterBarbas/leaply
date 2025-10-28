@@ -21,7 +21,7 @@ export default function Home() {
   }
 
   return (
-    <main className="relative flex-1 overflow-hidden bg-gradient-to-b from-white via-[#f7f9fc] to-[#edf2f7] dark:from-zinc-950 dark:via-zinc-900 dark:to-zinc-800">
+    <main className="relative flex-1 flex flex-col overflow-hidden bg-gradient-to-b from-white via-[#f7f9fc] to-[#edf2f7] dark:from-zinc-950 dark:via-zinc-900 dark:to-zinc-800 min-h-[calc(100vh-64px)]">
       {/* background accents */}
       <div className="pointer-events-none absolute inset-0 -z-10">
         <div className="absolute left-1/2 top-[-10%] h-[60vh] w-[60vh] -translate-x-1/2 rounded-full bg-[radial-gradient(circle_at_center,theme(colors.indigo.400/.35),transparent_60%)] blur-3xl" />
@@ -30,8 +30,8 @@ export default function Home() {
       </div>
 
       {/* hero */}
-      <section className="flex relative z-10 justify-center bg-white">
-        <div className="mx-auto max-w-6xl h-full w-full px-6 py-10 text-center">
+      <section className="flex relative z-10 justify-center bg-white flex-1 items-center">
+        <div className="mx-auto max-w-6xl w-full px-6 py-10 text-center">
           {/* glass card */}
           <motion.div
             initial={{ opacity: 0, y: 18 }}
