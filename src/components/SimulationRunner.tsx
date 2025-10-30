@@ -7,6 +7,7 @@ import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import MultipleChoiceQuestion from "@/components/ui/MultipleChoiceQuestion";
 import DragDropQuestion from "@/components/ui/DragDropQuestion";
+import FullscreenVideoPlayer from "@/components/ui/FullscreenVideoPlayer";
 
 type TaskStep = {
   kind: "task";
@@ -34,6 +35,12 @@ type TaskStep = {
         question: string; 
         pairs: Array<{ left: string; right: string }>; 
         explanation?: string; 
+      }
+    | { 
+        type: "video"; 
+        videoUrl: string; 
+        title?: string; 
+        description?: string; 
       };
 };
 
@@ -51,15 +58,20 @@ export default function SimulationRunner({
 }) {
   // 🔧 Normalize any legacy steps into rich "task" steps
   const tasks = useMemo<TaskStep[]>(() => {
+    console.log("🔍 SimulationRunner - Raw steps received:", steps);
     return (steps || []).map((s: RawStep, idx: number) => {
+      console.log(`🔍 Processing step ${idx}:`, s);
       if (s?.kind === "task") {
-        // already in the new format
-        return {
+        // already in the new format - preserve the original expected_input
+        const result = {
           ...s,
           index: typeof s.index === "number" ? s.index : idx,
           title: s.title || `Task ${idx + 1}`,
           expected_input: s.expected_input || { type: "text", placeholder: "Your attempt…" },
         };
+        console.log(`🔍 Processed task ${idx}:`, result);
+        console.log(`🔍 Task ${idx} expected_input type:`, result.expected_input?.type);
+        return result;
       }
 
       // Legacy step → wrap into a task
@@ -85,10 +97,15 @@ export default function SimulationRunner({
   const [loading, setLoading] = useState<{ hint?: boolean; feedback?: boolean; senior?: boolean; finish?: boolean }>({});
   const [questionAnswered, setQuestionAnswered] = useState(false);
   const [questionResult, setQuestionResult] = useState<{ isCorrect: boolean; explanation?: string } | null>(null);
+  const [showVideoPlayer, setShowVideoPlayer] = useState(false);
 
   const step = tasks[i];
   const isLast = i === tasks.length - 1;
   const stepCount = tasks.length;
+  
+  console.log("🎯 Current step:", step);
+  console.log("🎯 Current step expected_input:", step?.expected_input);
+  console.log("🎯 Current step expected_input type:", step?.expected_input?.type);
 
   async function getHint() {
     try {
@@ -231,11 +248,69 @@ export default function SimulationRunner({
             </h2>
           </div>
 
-          {/* Question content */}
-          <div className="p-8">
+            {/* Question content */}
+            <div className="p-8">
 
-            {/* Resources section - only show for text-based tasks */}
-            {step.expected_input?.type === "text" && Array.isArray(step.resources) && step.resources.length > 0 && (
+              {/* Video task */}
+              {step.expected_input?.type === "video" && (
+                <div className="text-center space-y-6">
+                  <div className="space-y-4">
+                    <h3 className="text-2xl font-bold text-gray-900 dark:text-white">
+                      {step.title}
+                    </h3>
+                    {step.summary_md && (
+                      <div className="prose prose-zinc dark:prose-invert max-w-none text-gray-600 dark:text-gray-400">
+                        <ReactMarkdown remarkPlugins={[remarkGfm]}>{step.summary_md}</ReactMarkdown>
+                      </div>
+                    )}
+                    {step.expected_input.title && (
+                      <h4 className="text-xl font-semibold text-gray-800 dark:text-gray-200">
+                        {step.expected_input.title}
+                      </h4>
+                    )}
+                    {step.expected_input.description && (
+                      <p className="text-gray-600 dark:text-gray-400 max-w-2xl mx-auto">
+                        {step.expected_input.description}
+                      </p>
+                    )}
+                  </div>
+                  
+                  <div className="relative max-w-4xl mx-auto">
+                    <div className="aspect-video bg-gray-900 rounded-lg overflow-hidden shadow-2xl">
+                      {/* Check if it's a YouTube URL */}
+                      {step.expected_input.videoUrl.includes('youtube.com') || step.expected_input.videoUrl.includes('youtu.be') ? (
+                        <iframe
+                          src={step.expected_input.videoUrl.replace('watch?v=', 'embed/').replace('youtu.be/', 'youtube.com/embed/')}
+                          className="w-full h-full"
+                          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                          allowFullScreen
+                          title={step.expected_input.title || "Video"}
+                        />
+                      ) : (
+                        <video
+                          src={step.expected_input.videoUrl}
+                          className="w-full h-full object-cover"
+                          poster=""
+                          controls
+                          preload="metadata"
+                        />
+                      )}
+                    </div>
+                    <div className="absolute inset-0 flex items-center justify-center">
+                      <Button
+                        onClick={() => setShowVideoPlayer(true)}
+                        size="lg"
+                        className="bg-black bg-opacity-50 hover:bg-opacity-70 text-white px-8 py-4 text-lg font-semibold rounded-xl shadow-lg"
+                      >
+                        🎬 Watch Fullscreen
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Resources section - only show for text-based tasks */}
+              {step.expected_input?.type === "text" && Array.isArray(step.resources) && step.resources.length > 0 && (
               <div className="mb-6 p-4 bg-gray-50 dark:bg-gray-700 rounded-xl">
                 <p className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">Resources</p>
                 <div className="grid gap-4 sm:grid-cols-2">
@@ -303,7 +378,7 @@ export default function SimulationRunner({
                   <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Your attempt</label>
                   <textarea
                     className="w-full rounded-xl border-2 border-gray-200 dark:border-gray-600 p-4 min-h-[140px] focus:border-blue-500 focus:ring-2 focus:ring-blue-200 dark:focus:ring-blue-800 transition-all"
-                    placeholder={step.expected_input?.placeholder || "Write your attempt here…"}
+                    placeholder={step.expected_input?.type === "text" ? step.expected_input.placeholder || "Write your attempt here…" : "Write your attempt here…"}
                     value={input}
                     onChange={(e) => setInput(e.target.value)}
                   />
@@ -342,6 +417,16 @@ export default function SimulationRunner({
                   </>
                 )}
                 {(step.expected_input?.type === "multiple_choice" || step.expected_input?.type === "drag_drop") && questionAnswered && (
+                  <Button 
+                    variant="outline" 
+                    onClick={getHint} 
+                    disabled={loading.hint}
+                    className="px-6 py-3 rounded-xl border-2 hover:bg-blue-50 dark:hover:bg-blue-900/20"
+                  >
+                    {loading.hint ? "Getting hint…" : "💡 Hint"}
+                  </Button>
+                )}
+                {step.expected_input?.type === "video" && (
                   <Button 
                     variant="outline" 
                     onClick={getHint} 
@@ -457,6 +542,16 @@ export default function SimulationRunner({
             </div>
           </div>
         </div>
+      )}
+
+      {/* Fullscreen Video Player */}
+      {showVideoPlayer && step.expected_input?.type === "video" && (
+        <FullscreenVideoPlayer
+          videoUrl={step.expected_input.videoUrl}
+          title={step.expected_input.title}
+          description={step.expected_input.description}
+          onClose={() => setShowVideoPlayer(false)}
+        />
       )}
     </div>
   );

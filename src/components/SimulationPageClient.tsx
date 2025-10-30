@@ -17,6 +17,7 @@ import {
   Mail,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import FullscreenVideoPlayer from "@/components/ui/FullscreenVideoPlayer";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -54,6 +55,12 @@ type TaskStep = {
         question: string; 
         pairs: Array<{ left: string; right: string }>; 
         explanation?: string; 
+      }
+    | {
+        type: "video";
+        videoUrl: string;
+        title?: string;
+        description?: string;
       };
   stage?: number;
 };
@@ -81,6 +88,8 @@ export default function SimulationPageClient({
   const [localCompletedTasks, setLocalCompletedTasks] =
     useState<number[]>(completedTasks);
   const [activeTab, setActiveTab] = useState<"tasks" | "guide">("tasks");
+  const [showVideoPlayer, setShowVideoPlayer] = useState(false);
+  const [videoPayload, setVideoPayload] = useState<{ url: string; title?: string; description?: string } | null>(null);
 
   const allTasksCompleted = localCompletedTasks.length === tasks.length;
 
@@ -130,37 +139,55 @@ export default function SimulationPageClient({
     sessionStorage.setItem(sessionKey, JSON.stringify(progressData));
   }, [attemptId, localCompletedTasks, sessionKey, sim.slug, tasks.length]);
 
-  // Initialize with server data as source of truth, but fall back to sessionStorage for test attempts
+  // Initialize/merge progress: prefer sessionStorage when present (guest), merge with server
   useEffect(() => {
-    // If server has no completed tasks, check sessionStorage (for test attempts)
-    if (completedTasks.length === 0) {
-      const savedProgress = sessionStorage.getItem(sessionKey);
-      if (savedProgress) {
-        try {
-          const progressData = JSON.parse(savedProgress);
-          if (progressData.completedTasks && progressData.completedTasks.length > 0) {
-            console.log('Loading progress from sessionStorage:', progressData.completedTasks);
-            setLocalCompletedTasks(progressData.completedTasks);
-            return; // Don't overwrite with empty server data
-          }
-        } catch (error) {
-          console.error('Failed to parse sessionStorage progress:', error);
-        }
+    let sessionList: number[] = [];
+    try {
+      const saved = sessionStorage.getItem(sessionKey);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed.completedTasks)) sessionList = parsed.completedTasks as number[];
       }
-    }
-    
-    setLocalCompletedTasks(completedTasks);
+    } catch {}
 
-    // Update sessionStorage to match server
-    const progressData = {
-      attemptId,
-      completedTasks,
-      timestamp: Date.now(),
-      simulationSlug: sim.slug,
-      totalTasks: tasks.length,
-    };
-    sessionStorage.setItem(sessionKey, JSON.stringify(progressData));
+    const serverList = Array.isArray(completedTasks) ? completedTasks : [];
+    const merged = Array.from(new Set([...(sessionList || []), ...(serverList || [])])).sort((a, b) => a - b);
+
+    setLocalCompletedTasks(merged);
+
+    // Persist merged back to session for guests
+    try {
+      const payload = {
+        attemptId,
+        completedTasks: merged,
+        timestamp: Date.now(),
+        simulationSlug: sim.slug,
+        totalTasks: tasks.length,
+      };
+      sessionStorage.setItem(sessionKey, JSON.stringify(payload));
+    } catch {}
   }, [attemptId, completedTasks, sessionKey, sim.slug, tasks.length]);
+
+  // Also re-sync guest progress from sessionStorage when page regains focus or storage changes
+  useEffect(() => {
+    const syncFromSession = () => {
+      try {
+        const saved = sessionStorage.getItem(sessionKey);
+        if (!saved) return;
+        const progress = JSON.parse(saved);
+        if (Array.isArray(progress.completedTasks)) {
+          setLocalCompletedTasks(progress.completedTasks);
+        }
+      } catch {}
+    };
+    syncFromSession();
+    window.addEventListener('focus', syncFromSession);
+    window.addEventListener('storage', syncFromSession);
+    return () => {
+      window.removeEventListener('focus', syncFromSession);
+      window.removeEventListener('storage', syncFromSession);
+    };
+  }, [sessionKey]);
 
   // Load progress from database for logged-in users
   useEffect(() => {
@@ -229,18 +256,35 @@ export default function SimulationPageClient({
     const status = getTaskStatus(taskIndex);
     // Don't allow clicking on completed or locked tasks
     if (status === "completed" || status === "locked") return;
+    const task = tasks[taskIndex] as TaskStep;
+    if (task?.expected_input?.type === "video") {
+      const v = task.expected_input as any;
+      setVideoPayload({ url: v.videoUrl, title: v.title, description: v.description });
+      setShowVideoPlayer(true);
+      return;
+    }
     router.push(`/s/${sim.slug}/task/${taskIndex}?attemptId=${attemptId}`);
   };
 
   const getTaskStatus = (
     index: number
   ): "completed" | "available" | "current" | "locked" => {
+    const task = tasks[index] as TaskStep | undefined;
+    // Video tasks are always available and never considered completed
+    if (task?.expected_input?.type === "video") {
+      return "available";
+    }
+
     if (localCompletedTasks.includes(index)) return "completed";
 
-    // First task is always available
+    // First task is always available (or next after a video)
     if (index === 0) return "available";
 
-    // Task is available only if previous task is completed
+    // If previous is a video, treat as available (videos don't block progress)
+    const prev = tasks[index - 1] as TaskStep | undefined;
+    if (prev?.expected_input?.type === "video") return "available";
+
+    // Task is available only if previous non-video task is completed
     if (localCompletedTasks.includes(index - 1)) return "available";
 
     // Otherwise it's locked
@@ -419,51 +463,7 @@ export default function SimulationPageClient({
     }
   };
 
-  // Fallback for simulations without role_info
-  if (!roleInfo) {
-    return (
-      <div className="mx-auto max-w-5xl px-6 py-10">
-        <div className="mb-6">
-          <Link
-            href="/simulate"
-            className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
-          >
-            <ArrowLeft className="h-4 w-4" />
-            Back to all roles
-          </Link>
-        </div>
-
-        <motion.div
-          initial={{ opacity: 0, y: 12 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5 }}
-          className="text-center"
-        >
-          <h1 className="text-3xl sm:text-4xl font-semibold tracking-tight text-foreground">
-            {sim.title}
-          </h1>
-          <p className="mt-3 text-base sm:text-lg text-muted-foreground">
-            {tasks.length} short tasks · ~10 minutes total
-          </p>
-        </motion.div>
-
-        <motion.div
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.15, duration: 0.5 }}
-          className="mt-8 rounded-2xl border border-border/60 bg-card/70 backdrop-blur-sm p-6 sm:p-8 shadow-sm"
-        >
-          <div className="prose prose-zinc dark:prose-invert max-w-none">
-            <p>
-              You'll work through realistic, day-to-day tasks for this role. Each
-              takes about 5–10 minutes and includes hints, feedback, and a
-              senior example.
-            </p>
-          </div>
-        </motion.div>
-      </div>
-    );
-  }
+  // If role_info is missing, continue to render the full tasks UI.
 
   return (
     <div className="mx-auto max-w-6xl px-6 py-10">
@@ -1229,6 +1229,14 @@ export default function SimulationPageClient({
           </div>
         )}
       </motion.div>
+      {showVideoPlayer && videoPayload && (
+        <FullscreenVideoPlayer
+          videoUrl={videoPayload.url}
+          title={videoPayload.title}
+          description={videoPayload.description}
+          onClose={() => setShowVideoPlayer(false)}
+        />
+      )}
     </div>
   );
 }

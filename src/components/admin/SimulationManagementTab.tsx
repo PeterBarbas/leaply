@@ -246,6 +246,22 @@ export default function SimulationManagementTab() {
                   </p>
                 </div>
                 <div className="flex gap-2 flex-shrink-0">
+                  <a
+                    href={`/admin?tab=manual&editSlug=${encodeURIComponent(s.slug)}`}
+                    className="inline-flex items-center justify-center h-8 w-auto px-3 sm:h-10 rounded-md border text-xs sm:text-sm"
+                    title="Edit"
+                  >
+                    Edit
+                  </a>
+                  <a
+                    href={`/s/${encodeURIComponent(s.slug)}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center justify-center h-8 w-auto px-3 sm:h-10 rounded-md border text-xs sm:text-sm"
+                    title="View"
+                  >
+                    View
+                  </a>
                   <Button 
                     variant="outline" 
                     size="icon" 

@@ -14,6 +14,7 @@ import remarkGfm from "remark-gfm";
 import MultipleChoiceQuestion, { MultipleChoiceQuestionRef } from "@/components/ui/MultipleChoiceQuestion";
 import DragDropQuestion from "@/components/ui/DragDropQuestion";
 import CompletionScreen, { CompletionScreenProps } from "@/components/ui/CompletionScreen";
+import FullscreenVideoPlayer from "@/components/ui/FullscreenVideoPlayer";
 
 type Sim = {
   slug: string;
@@ -46,6 +47,12 @@ type TaskStep = {
         question: string; 
         pairs: Array<{ left: string; right: string }>; 
         explanation?: string; 
+      }
+    | {
+        type: "video";
+        videoUrl: string;
+        title?: string;
+        description?: string;
       };
   stage?: number;
 };
@@ -84,6 +91,7 @@ export default function TaskPageClient({
   const [completionResult, setCompletionResult] = useState<{ isCorrect: boolean; timeSpent?: string; xpEarned?: number; accuracy?: number } | null>(null);
   const [hasMultipleChoiceSelection, setHasMultipleChoiceSelection] = useState(false);
   const [isNavigating, setIsNavigating] = useState(false);
+  const [showVideoPlayer, setShowVideoPlayer] = useState(false);
   
   // Calculate XP based on task level and correctness
   const calculateXP = (taskLevel: number, isCorrect: boolean): number => {
@@ -200,6 +208,12 @@ export default function TaskPageClient({
   }
 
   const handleComplete = async () => {
+    // Video tasks: never considered complete. Just return to stages page immediately.
+    if (task.expected_input?.type === "video") {
+      router.push(`/s/${sim.slug}?attemptId=${attemptId}`);
+      return;
+    }
+
     // For multiple choice: compute correctness immediately from ref and show popup in one click
     if (task.expected_input?.type === "multiple_choice") {
       const refApi = multipleChoiceRef.current;
@@ -217,17 +231,19 @@ export default function TaskPageClient({
       const xpEarned = calculateXP(taskLevel, isCorrect);
       const accuracy = isCorrect ? 100 : 50;
 
-      playCompletionSound();
       setQuestionAnswered(true);
       setQuestionResult({ isCorrect, explanation: task.expected_input.explanation });
       setCompletionResult({ isCorrect, timeSpent, xpEarned, accuracy });
+      // Always show completion popup for multiple choice (guest or logged in)
+      playCompletionSound();
       setShowCompletionScreen(true);
       return;
     }
 
-    // For drag_drop/text flows, keep existing gating
+    // For drag_drop/text/video flows, keep existing gating
     if ((task.expected_input?.type === "drag_drop") && !questionAnswered) return;
-    if (task.expected_input?.type === "text" && !input.trim()) return;
+    // For guests on text tasks, allow completion without input
+    if (task.expected_input?.type === "text" && !input.trim() && userId) return;
 
     const isCorrect = questionResult?.isCorrect ?? true;
     const timeSpent = "1:32";
@@ -235,9 +251,13 @@ export default function TaskPageClient({
     const xpEarned = calculateXP(taskLevel, isCorrect);
     const accuracy = isCorrect ? 100 : 50;
 
-    playCompletionSound();
     setCompletionResult({ isCorrect, timeSpent, xpEarned, accuracy });
-    setShowCompletionScreen(true);
+    if (userId) {
+      playCompletionSound();
+      setShowCompletionScreen(true);
+    } else {
+      await handleCompletionClose();
+    }
   };
 
   const handleCompletionClose = async () => {
@@ -320,7 +340,8 @@ export default function TaskPageClient({
         };
       }
       
-      if (!progressData.completedTasks.includes(taskIndex)) {
+      // Do not mark video tasks as completed
+      if (task.expected_input?.type !== "video" && !progressData.completedTasks.includes(taskIndex)) {
         progressData.completedTasks.push(taskIndex);
         progressData.timestamp = Date.now(); // Update timestamp
         sessionStorage.setItem(sessionKey, JSON.stringify(progressData));
@@ -366,6 +387,47 @@ export default function TaskPageClient({
 
           {/* Question content */}
           <div className="space-y-4 sm:space-y-6 flex flex-col items-center px-2 sm:px-0">
+          {/* Video task */}
+          {task.expected_input?.type === "video" && (
+            <div className="w-full max-w-3xl space-y-4">
+              {task.summary_md && (
+                <div className="text-center">
+                  <div className="prose prose-zinc max-w-none text-gray-600">
+                    <ReactMarkdown remarkPlugins={[remarkGfm]}>{task.summary_md}</ReactMarkdown>
+                  </div>
+                </div>
+              )}
+              <div className="relative">
+                <div className="aspect-video bg-gray-900 rounded-lg overflow-hidden shadow">
+                  {/* YouTube or direct video */}
+                  {task.expected_input.videoUrl.includes('youtube.com') || task.expected_input.videoUrl.includes('youtu.be') ? (
+                    <iframe
+                      src={task.expected_input.videoUrl.replace('watch?v=', 'embed/').replace('youtu.be/', 'youtube.com/embed/')}
+                      className="w-full h-full"
+                      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                      allowFullScreen
+                      title={task.expected_input.title || "Video"}
+                    />
+                  ) : (
+                    <video
+                      src={task.expected_input.videoUrl}
+                      className="w-full h-full object-cover"
+                      controls
+                      preload="metadata"
+                    />
+                  )}
+                </div>
+                <div className="absolute inset-0 flex items-center justify-center">
+                  <Button
+                    onClick={() => setShowVideoPlayer(true)}
+                    className="bg-black bg-opacity-50 hover:bg-opacity-70 text-white px-6 py-3 rounded-lg"
+                  >
+                    🎬 Watch Fullscreen
+                  </Button>
+                </div>
+              </div>
+            </div>
+          )}
           {/* Resources section - only show for text-based tasks */}
           {task.expected_input?.type === "text" && Array.isArray(task.resources) && task.resources.length > 0 && (
             <div className="mb-6">
@@ -426,6 +488,8 @@ export default function TaskPageClient({
                   disabled={questionAnswered}
                 />
               </div>
+            ) : task.expected_input?.type === "video" ? (
+              <></>
             ) : (
               <div className="space-y-6">
                 {task.summary_md && (
@@ -479,7 +543,15 @@ export default function TaskPageClient({
                 )}
                 <Button 
                   onClick={handleComplete}
-                  disabled={task.expected_input?.type === "multiple_choice" ? !hasMultipleChoiceSelection : task.expected_input?.type === "drag_drop" ? !questionAnswered : !input}
+                  disabled={task.expected_input?.type === "multiple_choice" 
+                    ? !hasMultipleChoiceSelection 
+                    : task.expected_input?.type === "drag_drop" 
+                      ? !questionAnswered 
+                      : task.expected_input?.type === "video"
+                        ? false
+                        : userId
+                          ? !input
+                          : false}
                   className="px-4 sm:px-8 py-2 sm:py-3 rounded-md bg-black hover:bg-white hover:border hover:border-black text-white hover:text-black font-bold text-sm sm:text-lg"
                 >
                   <span className="">Complete</span>
@@ -545,6 +617,16 @@ export default function TaskPageClient({
           xpEarned={completionResult.xpEarned}
           accuracy={completionResult.accuracy}
           isNavigating={isNavigating}
+        />
+      )}
+
+      {/* Fullscreen Video Player */}
+      {showVideoPlayer && task.expected_input?.type === "video" && (
+        <FullscreenVideoPlayer
+          videoUrl={task.expected_input.videoUrl}
+          title={task.expected_input.title}
+          description={task.expected_input.description}
+          onClose={() => setShowVideoPlayer(false)}
         />
       )}
 

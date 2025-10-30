@@ -24,6 +24,13 @@ const adminTabs = [
     description: 'Manage simulations and their status'
   },
   {
+    id: 'manual',
+    label: 'Manual Simulations',
+    icon: Settings,
+    href: '/admin?tab=manual',
+    description: 'Create simulations manually with custom steps'
+  },
+  {
     id: 'users',
     label: 'User Management',
     icon: Users,

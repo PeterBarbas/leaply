@@ -6,6 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { motion } from 'framer-motion';
 import { X, Mail, CheckCircle } from 'lucide-react';
+import GoogleAnalytics from '@/components/GoogleAnalytics';
 
 export default function ExperimentPage() {
   const [isEmailModalOpen, setIsEmailModalOpen] = useState(false);
@@ -55,6 +56,12 @@ export default function ExperimentPage() {
   const handleEarlyAccessClick = async () => {
     // Track button click
     try {
+      if (typeof window !== 'undefined' && window.gtag) {
+        window.gtag('event', 'fake_door_click', {
+          page: '/experiment',
+          label: 'Get Early Access',
+        });
+      }
       await fetch('/api/experiment', {
         method: 'POST',
         headers: {
@@ -78,6 +85,11 @@ export default function ExperimentPage() {
 
     // Track email submission
     try {
+      if (typeof window !== 'undefined' && window.gtag) {
+        window.gtag('event', 'fake_door_submit_email', {
+          page: '/experiment',
+        });
+      }
       await fetch('/api/experiment', {
         method: 'POST',
         headers: {
@@ -111,6 +123,7 @@ export default function ExperimentPage() {
 
   return (
     <main className="relative flex-1 overflow-hidden bg-gradient-to-b from-white via-[#f7f9fc] to-[#edf2f7] dark:from-zinc-950 dark:via-zinc-900 dark:to-zinc-800">
+      <GoogleAnalytics />
       {/* Background accents */}
       <div className="pointer-events-none absolute inset-0 -z-10">
         <div className="absolute left-1/2 top-[-10%] h-[60vh] w-[60vh] -translate-x-1/2 rounded-full bg-[radial-gradient(circle_at_center,theme(colors.indigo.400/.35),transparent_60%)] blur-3xl" />
