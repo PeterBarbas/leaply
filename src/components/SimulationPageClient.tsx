@@ -57,12 +57,6 @@ type TaskStep = {
         pairs: Array<{ left: string; right: string }>; 
         explanation?: string; 
       }
-    | {
-        type: "video";
-        videoUrl: string;
-        title?: string;
-        description?: string;
-      };
   stage?: number;
 };
 
@@ -118,6 +112,7 @@ export default function SimulationPageClient({
   const [localCompletedTasks, setLocalCompletedTasks] =
     useState<number[]>(initializeCompletedTasks);
   const [activeTab, setActiveTab] = useState<"tasks" | "guide">("tasks");
+  const [previousTab, setPreviousTab] = useState<"tasks" | "guide">("tasks");
   const [showVideoPlayer, setShowVideoPlayer] = useState(false);
   const [videoPayload, setVideoPayload] = useState<{ url: string; title?: string; description?: string } | null>(null);
 
@@ -302,25 +297,32 @@ export default function SimulationPageClient({
     const status = getTaskStatus(taskIndex);
     // Don't allow clicking on completed or locked tasks
     if (status === "completed" || status === "locked") return;
-    const task = tasks[taskIndex] as TaskStep;
-    if (task?.expected_input?.type === "video") {
-      const v = task.expected_input as any;
-      setVideoPayload({ url: v.videoUrl, title: v.title, description: v.description });
-      setShowVideoPlayer(true);
-      return;
-    }
     router.push(`/s/${sim.slug}/task/${taskIndex}?attemptId=${attemptId}`);
+  };
+
+  const handleDayInLifeClick = () => {
+    // Save current tab so we can restore it when video closes
+    setPreviousTab(activeTab);
+    const videoUrl = roleInfo?.day_in_life_video || roleInfo?.videoUrl;
+    if (videoUrl) {
+      setVideoPayload({ 
+        url: videoUrl, 
+        title: `Day in the Life: ${sim.title}`,
+        description: `Experience a day in the life of a ${sim.title}`
+      });
+      setShowVideoPlayer(true);
+    }
+  };
+
+  const handleVideoClose = () => {
+    setShowVideoPlayer(false);
+    // Restore the previous tab
+    setActiveTab(previousTab);
   };
 
   const getTaskStatus = (
     index: number
   ): "completed" | "available" | "current" | "locked" => {
-    const task = tasks[index] as TaskStep | undefined;
-    // Video tasks are always available and never considered completed
-    if (task?.expected_input?.type === "video") {
-      return "available";
-    }
-
     const completedForView = hydrated
       ? localCompletedTasks
       : (Array.isArray(completedTasks) ? completedTasks : []);
@@ -331,14 +333,10 @@ export default function SimulationPageClient({
       return "completed";
     }
 
-    // First task is always available (or next after a video)
+    // First task is always available
     if (index === 0) return "available";
 
-    // If previous is a video, treat as available (videos don't block progress)
-    const prev = tasks[index - 1] as TaskStep | undefined;
-    if (prev?.expected_input?.type === "video") return "available";
-
-    // Task is available only if previous non-video task is completed
+    // Task is available only if previous task is completed
     const prevCompleted = completedForView.includes(index - 1);
     if (prevCompleted) {
       return "available";
@@ -349,20 +347,27 @@ export default function SimulationPageClient({
   };
 
   // Compute the active (next) lesson index to focus/scroll into view
-  const getActiveLessonIndex = (): number => {
+  const getActiveLessonIndex = (): number | null => {
+    // Don't scroll if all tasks are completed
+    if (allTasksCompleted) return null;
+    
     for (let i = 0; i < tasks.length; i++) {
       const status = getTaskStatus(i);
       if (status === "available" || status === "current") return i;
     }
-    // If everything is completed, focus last task
-    return Math.max(0, tasks.length - 1);
+    return null;
   };
 
   // Scroll into view of the active lesson when landing on the stages page
   useEffect(() => {
+    // Don't scroll if all tasks are completed
+    if (allTasksCompleted) return;
+
     // Immediate scroll attempt
     const scrollToActive = () => {
       const activeIndex = getActiveLessonIndex();
+      if (activeIndex === null) return false;
+      
       const isMobile = typeof window !== 'undefined' && window.matchMedia && window.matchMedia('(max-width: 767px)').matches;
       const id = isMobile ? `task-mobile-${activeIndex}` : `task-desktop-${activeIndex}`;
       const el = document.getElementById(id) || document.getElementById(`task-${activeIndex}`);
@@ -383,7 +388,7 @@ export default function SimulationPageClient({
       }, 100);
       return () => clearTimeout(timer1);
     }
-  }, [localCompletedTasks, tasks.length]);
+  }, [localCompletedTasks, tasks.length, allTasksCompleted]);
 
   const getTaskIcon = (index: number) => {
     const status = getTaskStatus(index);
@@ -558,6 +563,14 @@ export default function SimulationPageClient({
         className="flex justify-center mb-8"
       >
         <div className="flex bg-gray-100 dark:bg-gray-800 rounded-lg p-1">
+          {(roleInfo?.day_in_life_video || roleInfo?.videoUrl) && (
+            <button
+              onClick={handleDayInLifeClick}
+              className="px-6 py-2 rounded-md text-sm font-medium transition-all text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 focus:outline-none focus:ring-0 border-0"
+            >
+              Day in the life
+            </button>
+          )}
           <button
             onClick={() => setActiveTab("tasks")}
             className={`px-6 py-2 rounded-md text-sm font-medium transition-all ${
@@ -1267,7 +1280,7 @@ export default function SimulationPageClient({
           videoUrl={videoPayload.url}
           title={videoPayload.title}
           description={videoPayload.description}
-          onClose={() => setShowVideoPlayer(false)}
+          onClose={handleVideoClose}
         />
       )}
     </div>

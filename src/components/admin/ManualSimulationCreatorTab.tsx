@@ -25,9 +25,7 @@ type DragDrop = {
 
 type TextInput = { type: "text"; placeholder?: string };
 
-type VideoInput = { type: "video"; videoUrl: string; title?: string; description?: string };
-
-type ExpectedInput = MultipleChoice | DragDrop | TextInput | VideoInput;
+type ExpectedInput = MultipleChoice | DragDrop | TextInput;
 
 type Task = {
   kind: "task";
@@ -65,6 +63,7 @@ export default function ManualSimulationCreatorTab() {
   const [industries, setIndustries] = useState(""); // one per line
   const [education, setEducation] = useState("");
   const [personalityTraits, setPersonalityTraits] = useState(""); // one per line
+  const [dayInLifeVideo, setDayInLifeVideo] = useState(""); // video URL for "Day in the life" tab
   const [originalSlug, setOriginalSlug] = useState<string>("");
   const [stages, setStages] = useState<Array<{ id: number; name: string; description: string }>>([
     { id: 1, name: "Stage 1 (Easy)", description: "Fundamentals and basic concepts" },
@@ -111,6 +110,7 @@ export default function ManualSimulationCreatorTab() {
         setIndustries(Array.isArray(ri.industries) ? ri.industries.join("\n") : "");
         setEducation(ri.education || "");
         setPersonalityTraits(Array.isArray(ri.personalityTraits) ? ri.personalityTraits.join("\n") : "");
+        setDayInLifeVideo(ri.day_in_life_video || "");
         const rawSteps = Array.isArray(sim.steps) ? sim.steps : [];
         const mapped: Task[] = rawSteps.map((s: any, i: number) => ({
           kind: "task",
@@ -156,10 +156,6 @@ export default function ManualSimulationCreatorTab() {
         const d = s.expected_input as DragDrop;
         return d.question.trim().length > 0 && d.pairs.length >= 1 && d.pairs.every(p => p.left.trim() && p.right.trim());
       }
-      if (s.expected_input.type === "video") {
-        const v = s.expected_input as VideoInput;
-        return v.videoUrl.trim().length > 0;
-      }
       return true;
     });
   }, [title, slug, steps]);
@@ -200,24 +196,6 @@ export default function ManualSimulationCreatorTab() {
             question: "",
             pairs: [{ left: "", right: "" }],
             explanation: "",
-          },
-        },
-      ]);
-    } else if (kind === "video") {
-      setSteps((prev) => [
-        ...prev,
-        {
-          kind: "task",
-          index,
-          title: `Task ${index + 1}`,
-          summary_md: "",
-          hint_md: "",
-          stage: stageId,
-          expected_input: {
-            type: "video",
-            videoUrl: "",
-            title: "",
-            description: "",
           },
         },
       ]);
@@ -287,6 +265,7 @@ export default function ManualSimulationCreatorTab() {
             .split("\n")
             .map((x) => x.trim())
             .filter(Boolean),
+          day_in_life_video: dayInLifeVideo.trim() || undefined,
         },
         active,
       };
@@ -376,6 +355,11 @@ export default function ManualSimulationCreatorTab() {
                 <label className="block text-sm font-medium mb-1">Ideal Traits (one per line)</label>
                 <Textarea rows={3} value={personalityTraits} onChange={(e) => setPersonalityTraits(e.target.value)} placeholder={"Analytical\nCollaborative\nDetail-oriented"} />
               </div>
+              <div>
+                <label className="block text-sm font-medium mb-1">Day in the Life Video URL</label>
+                <Input value={dayInLifeVideo} onChange={(e) => setDayInLifeVideo(e.target.value)} placeholder="YouTube, Vimeo, or direct video URL" />
+                <p className="text-xs text-muted-foreground mt-1">Video to show in the &quot;Day in the life&quot; tab. Leave empty to hide the tab.</p>
+              </div>
             </div>
           </div>
 
@@ -421,15 +405,6 @@ export default function ManualSimulationCreatorTab() {
                           className="w-full text-xs"
                         >
                           + Drag to Match
-                        </Button>
-                        <Button 
-                          type="button" 
-                          variant="outline" 
-                          size="sm" 
-                          onClick={() => addTask("video", stage.id)}
-                          className="w-full text-xs"
-                        >
-                          + Video Task
                         </Button>
                       </div>
                     </div>
@@ -493,7 +468,6 @@ export default function ManualSimulationCreatorTab() {
                         {s.expected_input.type === "text" && "Text Input"}
                         {s.expected_input.type === "multiple_choice" && "Multiple Choice"}
                         {s.expected_input.type === "drag_drop" && "Drag to Match"}
-                        {s.expected_input.type === "video" && "Video Task"}
                       </div>
                     </div>
                   </div>
@@ -684,38 +658,6 @@ export default function ManualSimulationCreatorTab() {
                     );
                   })()}
 
-                  {s.expected_input.type === "video" && (() => {
-                    const v = s.expected_input as VideoInput;
-                    return (
-                      <div className="space-y-3">
-                        <div>
-                          <label className="block text-sm font-medium mb-1">Video URL</label>
-                          <Input
-                            value={v.videoUrl}
-                            onChange={(e) => updateTask(idx, { expected_input: { ...v, videoUrl: e.target.value } })}
-                            placeholder="https://example.com/video.mp4 or YouTube/Vimeo URL"
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-sm font-medium mb-1">Video Title (optional)</label>
-                          <Input
-                            value={v.title || ""}
-                            onChange={(e) => updateTask(idx, { expected_input: { ...v, title: e.target.value } })}
-                            placeholder="Video title"
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-sm font-medium mb-1">Description (optional)</label>
-                          <Textarea
-                            value={v.description || ""}
-                            onChange={(e) => updateTask(idx, { expected_input: { ...v, description: e.target.value } })}
-                            rows={2}
-                            placeholder="Brief description of what the video covers"
-                          />
-                        </div>
-                      </div>
-                    );
-                  })()}
                 </div>
               );
             })}

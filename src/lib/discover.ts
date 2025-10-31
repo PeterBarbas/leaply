@@ -22,38 +22,157 @@ function setCachedResponse(key: string, data: any): void {
   promptCache.set(key, { data, timestamp: Date.now() });
 }
 
-const SUPPORTED_ROLES = [
-  "Marketing",
-  "Social Media Management",
-  "Content Creation",
-  "Copywriting",
-  "Frontend Development",
-  "Backend Development",
-  "Software Engineering",
-  "Product Management",
-  "Project Management",
-  "Program Management",
-  "Quality Assurance",
-  "Customer Support",
-  "Data & Analytics",
-  "Data Science",
-  "Data Engineering",
-  "Business Intelligence",
-  "Business Analysis",
-  "Finance",
-  "Accounting",
-  "Operations",
-  "Sales / Business Development",
-  "Customer Success",
-  "Recruiting",
-  "Design",
-  "Human Resources",
-  "IT / Tech Support",
-  "Consulting",
-  "Strategy",
-  "Legal",
-  "Supply Chain / Logistics",
+export const SUPPORTED_ROLES = [
+  // --- MARKETING & COMMUNICATION ---
+  "Marketing Manager",
+  "Digital Marketing Specialist",
+  "Growth Marketer",
+  "Performance Marketer",
+  "SEO Specialist",
+  "Content Marketer",
+  "Email Marketing Specialist",
+  "Social Media Manager",
+  "Community Manager",
+  "Brand Manager",
+  "Copywriter",
+  "Content Creator",
+  "PR & Communications Specialist",
+  "Influencer Marketing Manager",
+
+  // --- PRODUCT & PROJECT MANAGEMENT ---
+  "Product Manager",
+  "Associate Product Manager",
+  "Technical Product Manager",
+  "Project Manager",
+  "Technical Project Manager",
+  "Program Manager",
+  "Scrum Master",
+  "Product Owner",
+
+  // --- SOFTWARE ENGINEERING & DEVELOPMENT ---
+  "Frontend Developer",
+  "Backend Developer",
+  "Full Stack Developer",
+  "Mobile Developer (React Native / iOS / Android)",
+  "Software Engineer",
+  "DevOps Engineer",
+  "QA Engineer",
+  "Automation Test Engineer",
+  "Solutions Architect",
+  "Cloud Engineer",
+  "Game Developer",
+  "Embedded Systems Engineer",
+
+  // --- DATA & ANALYTICS ---
+  "Data Analyst",
+  "Data Scientist",
+  "Data Engineer",
+  "Machine Learning Engineer",
+  "AI Researcher",
+  "Business Intelligence Analyst",
+  "Data Visualization Specialist",
+
+  // --- DESIGN & CREATIVE ---
+  "UI Designer",
+  "UX Designer",
+  "Product Designer",
+  "Visual Designer",
+  "Graphic Designer",
+  "Motion Designer",
+  "UX Researcher",
+  "Design Lead",
+  "Creative Director",
+
+  // --- BUSINESS, STRATEGY & OPERATIONS ---
+  "Business Analyst",
+  "Strategy Consultant",
+  "Management Consultant",
+  "Operations Manager",
+  "Chief of Staff",
+  "Process Improvement Specialist",
+  "Business Operations Analyst",
+  "Procurement Specialist",
+  "Supply Chain Analyst",
+  "Logistics Coordinator",
+
+  // --- SALES & CUSTOMER SUCCESS ---
+  "Sales Development Representative (SDR)",
+  "Account Executive",
+  "Account Manager",
+  "Customer Success Manager",
+  "Partnerships Manager",
+  "Sales Operations Analyst",
+  "Business Development Representative (BDR)",
+  "Enterprise Sales Manager",
+
+  // --- FINANCE & ACCOUNTING ---
+  "Financial Analyst",
+  "Accountant",
+  "Controller",
+  "Finance Manager",
+  "Investment Analyst",
+  "Auditor",
+  "Treasury Analyst",
+  "FP&A Analyst (Financial Planning & Analysis)",
+
+  // --- HUMAN RESOURCES & RECRUITING ---
+  "HR Generalist",
+  "Talent Acquisition Specialist",
+  "Recruiter",
+  "People Operations Manager",
+  "Learning & Development Specialist",
+  "HR Business Partner",
+  "Compensation & Benefits Analyst",
+
+  // --- CUSTOMER & TECH SUPPORT ---
+  "Customer Support Specialist",
+  "Technical Support Engineer",
+  "Help Desk Analyst",
+  "Customer Experience Manager",
+
+  // --- INFORMATION TECHNOLOGY (IT) ---
+  "IT Support Specialist",
+  "IT Systems Administrator",
+  "Network Engineer",
+  "Cybersecurity Analyst",
+  "Database Administrator",
+  "IT Manager",
+  "Infrastructure Engineer",
+
+  // --- LEGAL, COMPLIANCE & ADMINISTRATION ---
+  "Legal Counsel",
+  "Paralegal",
+  "Compliance Officer",
+  "Contract Manager",
+  "Corporate Lawyer",
+  "Office Manager",
+  "Executive Assistant",
+
+  // --- CONSULTING & ADVISORY ---
+  "Management Consultant",
+  "Technology Consultant",
+  "Financial Consultant",
+  "HR Consultant",
+  "Strategy Consultant",
+
+  // --- SUPPLY CHAIN & LOGISTICS ---
+  "Supply Chain Planner",
+  "Operations Coordinator",
+  "Procurement Analyst",
+  "Inventory Manager",
+  "Warehouse Operations Lead",
+  "Logistics Specialist",
+
+  // --- OTHER CORPORATE FUNCTIONS ---
+  "Corporate Trainer",
+  "Change Management Specialist",
+  "Internal Communications Manager",
+  "ESG / Sustainability Analyst",
+  "Innovation Manager",
+  "Risk Analyst",
+  "Compliance Analyst"
 ] as const;
+
 
 export type SupportedRole = (typeof SUPPORTED_ROLES)[number];
 export type QA = { q: string; a: string };

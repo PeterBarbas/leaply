@@ -18,6 +18,14 @@ function getYouTubeEmbedUrl(url: string): string | null {
   return match ? `https://www.youtube.com/embed/${match[1]}` : null;
 }
 
+// Helper function to convert Vimeo URL to embed URL
+function getVimeoEmbedUrl(url: string): string | null {
+  // Matches vimeo.com/123456789 or vimeo.com/video/123456789
+  const vimeoRegex = /(?:vimeo\.com\/)(?:video\/)?(\d+)/;
+  const match = url.match(vimeoRegex);
+  return match ? `https://player.vimeo.com/video/${match[1]}` : null;
+}
+
 // Helper function to check if URL is a direct video file
 function isDirectVideoUrl(url: string): boolean {
   return /\.(mp4|webm|ogg|mov|avi|wmv|flv|mkv)(\?.*)?$/i.test(url);
@@ -36,13 +44,24 @@ export default function FullscreenVideoPlayer({
   const [duration, setDuration] = useState(0);
   const videoRef = useRef<HTMLVideoElement>(null);
   
-  // Determine if this is a YouTube URL or direct video
+  // Determine if this is a YouTube, Vimeo URL or direct video
   const isYouTube = getYouTubeEmbedUrl(videoUrl) !== null;
+  const isVimeo = getVimeoEmbedUrl(videoUrl) !== null;
   const isDirectVideo = isDirectVideoUrl(videoUrl);
-  let embedUrl = isYouTube ? getYouTubeEmbedUrl(videoUrl) : null;
-  if (embedUrl) {
-    embedUrl += embedUrl.includes("?") ? "&autoplay=1" : "?autoplay=1";
-    embedUrl += "&rel=0&modestbranding=1&playsinline=1";
+  let embedUrl: string | null = null;
+  
+  if (isYouTube) {
+    embedUrl = getYouTubeEmbedUrl(videoUrl);
+    if (embedUrl) {
+      embedUrl += embedUrl.includes("?") ? "&autoplay=1" : "?autoplay=1";
+      embedUrl += "&rel=0&modestbranding=1&playsinline=1&fs=1";
+    }
+  } else if (isVimeo) {
+    embedUrl = getVimeoEmbedUrl(videoUrl);
+    if (embedUrl) {
+      embedUrl += embedUrl.includes("?") ? "&autoplay=1" : "?autoplay=1";
+      embedUrl += "&autopause=0";
+    }
   }
 
   useEffect(() => {
@@ -137,52 +156,46 @@ export default function FullscreenVideoPlayer({
   }, [onClose]);
 
   return (
-    <div className="fixed inset-0 z-50 bg-black bg-opacity-95 flex items-center justify-center">
-      <div className="w-full h-full flex flex-col">
-        {/* Header */}
-        <div className="flex items-center justify-between p-4 bg-black bg-opacity-50">
-          <div className="flex-1">
-            {title && <h2 className="text-white text-lg font-semibold">{title}</h2>}
-            {description && <p className="text-gray-300 text-sm">{description}</p>}
-          </div>
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={onClose}
-            className="text-white hover:bg-white hover:bg-opacity-20"
-          >
-            <X className="h-6 w-6" />
-          </Button>
-        </div>
+    <div className="fixed inset-0 z-50 bg-black flex flex-col">
+      <div className="w-full h-full flex flex-col relative">
+        {/* Close button - top right corner */}
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={onClose}
+          className="absolute top-4 right-4 z-50 text-white hover:bg-white hover:bg-opacity-20 bg-black bg-opacity-50 rounded-full"
+        >
+          <X className="h-6 w-6" />
+        </Button>
 
-        {/* Video Container */}
-        <div className="flex-1 flex items-center justify-center p-4">
-          <div className="relative w-full max-w-6xl">
-            {isYouTube && embedUrl ? (
-              <iframe
-                src={embedUrl}
-                className="w-full aspect-video rounded-lg"
-                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-                allowFullScreen
-                title={title || "Video"}
-              />
-            ) : isDirectVideo ? (
-              <video
-                ref={videoRef}
-                src={videoUrl}
-                className="w-full h-auto max-h-[70vh] rounded-lg"
-                controls={false}
-                onEnded={() => setIsPlaying(false)}
-              />
-            ) : (
-              <div className="w-full aspect-video bg-gray-900 rounded-lg flex items-center justify-center">
-                <div className="text-center text-white">
-                  <p className="text-lg mb-4">Unsupported video format</p>
-                  <p className="text-sm text-gray-400">Please use a direct video file (.mp4, .webm) or YouTube URL</p>
-                </div>
+        {/* Video Container - Fullscreen within modal */}
+        <div className="flex-1 flex items-center justify-center p-0 overflow-hidden">
+          {(isYouTube || isVimeo) && embedUrl ? (
+            <iframe
+              src={embedUrl}
+              className="w-full h-full border-0"
+              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share; fullscreen"
+              allowFullScreen
+              title={title || "Video"}
+            />
+          ) : isDirectVideo ? (
+            <video
+              ref={videoRef}
+              src={videoUrl}
+              className="w-full h-full object-contain"
+              controls={false}
+              autoPlay
+              muted
+              onEnded={() => setIsPlaying(false)}
+            />
+          ) : (
+            <div className="w-full h-full bg-gray-900 flex items-center justify-center">
+              <div className="text-center text-white">
+                <p className="text-lg mb-4">Unsupported video format</p>
+                <p className="text-sm text-gray-400">Please use a direct video file (.mp4, .webm) or YouTube/Vimeo URL</p>
               </div>
-            )}
-          </div>
+            </div>
+          )}
         </div>
 
         {/* Controls - Only show for direct video files */}

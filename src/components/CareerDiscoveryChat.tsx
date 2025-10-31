@@ -15,11 +15,12 @@ type CurrentQ =
   | { text: string; ui: 'text'; placeholder?: string }
   | null;
 
-type Pref = 'student' | 'midcareer' | 'other' | null;
+type Pref = 'student' | 'bachelor' | 'midcareer' | 'other' | null;
 
 const FIRST_Q = 'Which best describes you right now?';
 const FIRST_OPTIONS = [
   'I\'m in secondary school deciding what to study',
+  'I\'m a bachelor\'s student exploring career options',
   'I\'m mid-career and exploring a change',
   'Other',
 ];
@@ -63,13 +64,16 @@ export default function CareerDiscoveryChat({
   const [result, setResult] = useState<
     | null
     | {
-        status: 'supported' | 'unsupported';
+        status: 'supported' | 'unsupported' | 'not_found';
         role?: string;
         slug?: string;
         message: string;
         created?: boolean;
       }
   >(null);
+  const [waitlistEmail, setWaitlistEmail] = useState('');
+  const [waitlistSubmitted, setWaitlistSubmitted] = useState(false);
+  const [waitlistLoading, setWaitlistLoading] = useState(false);
 
   // Now the SCROLL is only on the messages area (not around the composer)
   const scrollRef = useRef<HTMLDivElement | null>(null);
@@ -225,6 +229,7 @@ export default function CareerDiscoveryChat({
   // ✅ Use the server-provided pref instead of useSearchParams
   const prefLabel = useMemo(() => {
     if (initialPref === 'student') return 'I\'m in secondary school deciding what to study';
+    if (initialPref === 'bachelor') return 'I\'m a bachelor\'s student exploring career options';
     if (initialPref === 'midcareer') return 'I\'m mid-career and exploring a change';
     if (initialPref === 'other') return 'Other';
     return null;
@@ -310,6 +315,10 @@ export default function CareerDiscoveryChat({
         });
         setCurrentQ(null);
         addBot(data.message);
+        // If role not found, prompt for email via the standard composer
+        if (data.status === 'not_found') {
+          setCurrentQ({ text: 'Enter your email to get notified when it\'s ready.', ui: 'text', placeholder: 'Enter your email address' });
+        }
       } else {
         setCurrentQ(null);
         addBot('I\'m not sure—try rephrasing, or view all roles.');
@@ -323,9 +332,37 @@ export default function CareerDiscoveryChat({
   }
 
   async function submit() {
-    if (!currentQ || currentQ.ui !== 'text') return;
     const a = input.trim();
     if (!a) return;
+
+    // If we're waiting for an email because the simulation doesn't exist, capture it here
+    if (result?.status === 'not_found' && currentQ && currentQ.ui === 'text') {
+      addYou(a);
+      setInput('');
+      setPending(true);
+      try {
+        const res = await fetch('/api/discover/waitlist', {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ email: a, role: result.role }),
+        });
+        const data = await res.json();
+        if (res.ok && data.ok) {
+          addBot(`✅ You're on the list! We'll notify you when the ${result.role} simulation is ready.`);
+          setWaitlistSubmitted(true);
+          setCurrentQ(null);
+        } else {
+          addBot('Sorry, something went wrong. Please try again or contact us.');
+        }
+      } catch {
+        addBot('Sorry, something went wrong. Please try again or contact us.');
+      } finally {
+        setPending(false);
+      }
+      return;
+    }
+
+    if (!currentQ || currentQ.ui !== 'text') return;
     addYou(a);
     const qasNext = [...qas, { q: currentQ.text, a }];
     setQas(qasNext);
@@ -603,111 +640,79 @@ export default function CareerDiscoveryChat({
               <div 
                 className="px-2 sm:px-2 pt-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] border-t border-foreground/10 bg-background/70 backdrop-blur mobile-input-container flex-shrink-0"
                 style={{
-                  // Adjust padding bottom when keyboard is open
                   paddingBottom: keyboardHeight > 0 ? '0.5rem' : undefined,
-                  // Ensure stable positioning on mobile
                   position: 'sticky',
                   bottom: 0,
                   zIndex: 10,
-                  transform: 'translateZ(0)', // Force hardware acceleration
+                  transform: 'translateZ(0)',
                 }}
               >
-                {result ? (
-                  <div className="flex flex-col sm:flex-row sm:flex-wrap items-center gap-3">
-                    {result.status === 'supported' && result.slug ? (
-                      <>
-                        <Button asChild className="w-full sm:w-auto px-6 py-3 h-auto min-h-[44px] whitespace-normal text-center leading-tight">
-                          <a href={`/s/${result.slug}`} className="block w-full">Try the {result.role} simulation</a>
-                        </Button>
-                        {!hideSkip && !embed && (
-                          <a
-                            className="text-sm text-muted-foreground underline underline-offset-4 pb-3 sm:pb-0"
-                            href="/simulate"
-                          >
-                            Or view all roles
-                          </a>
-                        )}
-                      </>
-                    ) : (
-                      <>
-                        <Button asChild className="w-full sm:w-auto px-6 py-3 h-auto min-h-[44px] whitespace-normal text-center leading-tight">
-                          <a href="/simulate" className="block w-full">Explore corporate roles</a>
-                        </Button>
-                        <span className="text-sm text-muted-foreground">We'll expand to more paths soon 🚀</span>
-                      </>
-                    )}
-                  </div>
-                ) : (
-                  <form
-                    onSubmit={(e) => {
-                      e.preventDefault();
-                      if (!pending && currentQ && currentQ.ui === 'text' && input.trim()) submit();
-                    }}
-                    className="relative"
-                  >
-                    <Input
-                      value={input}
-                      ref={inputRef}
-                      onChange={(e) => setInput(e.target.value)}
-                      placeholder={
-                        currentQ && currentQ.ui === 'text'
-                          ? currentQ.placeholder || 'Type your answer…'
-                          : 'Waiting for question…'
-                      }
-                      onFocus={() => {
-                        // Only scroll if we're on mobile and keyboard is not already open
-                        if (window.innerWidth < 640 && keyboardHeight === 0) {
-                          // Use a more gentle scroll approach
-                          setTimeout(() => {
-                            if (inputRef.current) {
-                              const rect = inputRef.current.getBoundingClientRect();
-                              const isVisible = rect.top >= 0 && rect.bottom <= window.innerHeight;
-                              if (!isVisible) {
-                                inputRef.current.scrollIntoView({ 
-                                  behavior: 'smooth', 
-                                  block: 'nearest' // Less aggressive than 'center'
-                                });
-                              }
+                <form
+                  onSubmit={(e) => {
+                    e.preventDefault();
+                    if (!pending && currentQ && currentQ.ui === 'text' && input.trim()) submit();
+                  }}
+                  className="relative"
+                >
+                  <Input
+                    value={input}
+                    ref={inputRef}
+                    onChange={(e) => setInput(e.target.value)}
+                    placeholder={
+                      currentQ && currentQ.ui === 'text'
+                        ? currentQ.placeholder || 'Type your answer…'
+                        : 'Waiting for question…'
+                    }
+                    onFocus={() => {
+                      if (window.innerWidth < 640 && keyboardHeight === 0) {
+                        setTimeout(() => {
+                          if (inputRef.current) {
+                            const rect = inputRef.current.getBoundingClientRect();
+                            const isVisible = rect.top >= 0 && rect.bottom <= window.innerHeight;
+                            if (!isVisible) {
+                              inputRef.current.scrollIntoView({ 
+                                behavior: 'smooth',
+                                block: 'nearest'
+                              });
                             }
-                          }, 200); // Reduced delay
-                        }
-                      }}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter' && !e.shiftKey) {
-                          e.preventDefault();
-                          if (!pending && currentQ && currentQ.ui === 'text' && input.trim()) submit();
-                        }
-                      }}
-                      disabled={!currentQ || currentQ.ui !== 'text' || pending}
-                      className={[
-                        'h-12 w-full rounded-full pr-12 pl-4',
-                        'border border-foreground/10',
-                        'focus-visible:ring-0 focus-visible:ring-primary focus-visible:border-foreground/10',
-                        'placeholder:text-muted-foreground/60',
-                        // Mobile-specific improvements
-                        'text-base', // Prevent zoom on iOS
-                        'touch-manipulation', // Improve touch responsiveness
-                        'will-change-auto', // Optimize for mobile
-                      ].join(' ')}
-                    />
+                          }
+                        }, 200);
+                      }
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' && !e.shiftKey) {
+                        e.preventDefault();
+                        if (!pending && currentQ && currentQ.ui === 'text' && input.trim()) submit();
+                      }
+                    }}
+                    disabled={!currentQ || currentQ.ui !== 'text' || pending}
+                    className={[
+                      'h-12 w-full rounded-full pr-12 pl-4',
+                      'border border-foreground/10',
+                      'focus-visible:ring-0 focus-visible:ring-primary focus-visible:border-foreground/10',
+                      'placeholder:text-muted-foreground/60',
+                      'text-base',
+                      'touch-manipulation',
+                      'will-change-auto',
+                    ].join(' ')}
+                  />
 
-                    <button
-                      type="submit"
-                      disabled={!currentQ || currentQ.ui !== 'text' || !input.trim() || pending}
-                      className={[
-                        'absolute right-1.5 top-1/2 -translate-y-1/2',
-                        'inline-flex h-9 w-9 items-center justify-center rounded-full',
-                        (!currentQ || currentQ.ui !== 'text' || !input.trim() || pending)
-                          ? 'bg-foreground/10 text-muted-foreground cursor-not-allowed'
-                          : 'bg-primary text-primary-foreground hover:bg-primary/90 shadow-sm',
-                        'transition-colors',
-                      ].join(' ')}
-                      aria-label="Send"
-                    >
-                      <Send className="h-4 w-4" />
-                    </button>
-                  </form>
-                )}
+                  <button
+                    type="submit"
+                    disabled={!currentQ || currentQ.ui !== 'text' || !input.trim() || pending}
+                    className={[
+                      'absolute right-1.5 top-1/2 -translate-y-1/2',
+                      'inline-flex h-9 w-9 items-center justify-center rounded-full',
+                      (!currentQ || currentQ.ui !== 'text' || !input.trim() || pending)
+                        ? 'bg-foreground/10 text-muted-foreground cursor-not-allowed'
+                        : 'bg-primary text-primary-foreground hover:bg-primary/90 shadow-sm',
+                      'transition-colors',
+                    ].join(' ')}
+                    aria-label="Send"
+                  >
+                    <Send className="h-4 w-4" />
+                  </button>
+                </form>
               </div>
             </div>
           </div>
@@ -833,109 +838,77 @@ export default function CareerDiscoveryChat({
             <div 
               className="px-2 sm:px-2 pt-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] rounded-b-2xl border-t border-foreground/10 bg-background/70 backdrop-blur mobile-input-container relative z-10"
               style={{
-                // Adjust padding bottom when keyboard is open
                 paddingBottom: keyboardHeight > 0 ? '0.5rem' : undefined,
-                // Ensure stable positioning on mobile
                 position: 'relative',
-                transform: 'translateZ(0)', // Force hardware acceleration
+                transform: 'translateZ(0)',
               }}
             >
-              {result ? (
-                <div className="flex flex-col sm:flex-row sm:flex-wrap items-center gap-3">
-                  {result.status === 'supported' && result.slug ? (
-                    <>
-                      <Button asChild className="w-full sm:w-auto px-6 py-3 h-auto min-h-[44px] whitespace-normal text-center leading-tight">
-                        <a href={`/s/${result.slug}`} className="block w-full">Try the {result.role} simulation</a>
-                      </Button>
-                      {!hideSkip && !embed && (
-                        <a
-                          className="text-sm text-muted-foreground underline underline-offset-4 pb-3 sm:pb-0"
-                          href="/simulate"
-                        >
-                          Or view all roles
-                        </a>
-                      )}
-                    </>
-                  ) : (
-                    <>
-                      <Button asChild className="w-full sm:w-auto px-6 py-3 h-auto min-h-[44px] whitespace-normal text-center leading-tight">
-                        <a href="/simulate" className="block w-full">Explore corporate roles</a>
-                      </Button>
-                      <span className="text-sm text-muted-foreground">We'll expand to more paths soon 🚀</span>
-                    </>
-                  )}
-                </div>
-              ) : (
-                <form
-                  onSubmit={(e) => {
-                    e.preventDefault();
-                    if (!pending && currentQ && currentQ.ui === 'text' && input.trim()) submit();
-                  }}
-                  className="relative"
-                >
-                  <Input
-                    value={input}
-                    ref={inputRef}
-                    onChange={(e) => setInput(e.target.value)}
-                    placeholder={
-                      currentQ && currentQ.ui === 'text'
-                        ? currentQ.placeholder || 'Type your answer…'
-                        : 'Waiting for question…'
-                    }
-                    onFocus={() => {
-                      // Only scroll if we're on mobile and keyboard is not already open
-                      if (window.innerWidth < 640 && keyboardHeight === 0) {
-                        // Use a more gentle scroll approach
-                        setTimeout(() => {
-                          if (inputRef.current) {
-                            const rect = inputRef.current.getBoundingClientRect();
-                            const isVisible = rect.top >= 0 && rect.bottom <= window.innerHeight;
-                            if (!isVisible) {
-                              inputRef.current.scrollIntoView({ 
-                                behavior: 'smooth', 
-                                block: 'nearest' // Less aggressive than 'center'
-                              });
-                            }
+              <form
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  if (!pending && currentQ && currentQ.ui === 'text' && input.trim()) submit();
+                }}
+                className="relative"
+              >
+                <Input
+                  value={input}
+                  ref={inputRef}
+                  onChange={(e) => setInput(e.target.value)}
+                  placeholder={
+                    currentQ && currentQ.ui === 'text'
+                      ? currentQ.placeholder || 'Type your answer…'
+                      : 'Waiting for question…'
+                  }
+                  onFocus={() => {
+                    if (window.innerWidth < 640 && keyboardHeight === 0) {
+                      setTimeout(() => {
+                        if (inputRef.current) {
+                          const rect = inputRef.current.getBoundingClientRect();
+                          const isVisible = rect.top >= 0 && rect.bottom <= window.innerHeight;
+                          if (!isVisible) {
+                            inputRef.current.scrollIntoView({ 
+                              behavior: 'smooth', 
+                              block: 'nearest'
+                            });
                           }
-                        }, 200); // Reduced delay
-                      }
-                    }}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter' && !e.shiftKey) {
-                        e.preventDefault();
-                        if (!pending && currentQ && currentQ.ui === 'text' && input.trim()) submit();
-                      }
-                    }}
-                    disabled={!currentQ || currentQ.ui !== 'text' || pending}
-                    className={[
-                      'h-12 w-full rounded-full pr-12 pl-4',
-                      'border border-foreground/10',
-                      'focus-visible:ring-0 focus-visible:ring-primary focus-visible:border-foreground/10',
-                      'placeholder:text-muted-foreground/60',
-                      // Mobile-specific improvements
-                      'text-base', // Prevent zoom on iOS
-                      'touch-manipulation', // Improve touch responsiveness
-                      'will-change-auto', // Optimize for mobile
-                    ].join(' ')}
-                  />
+                        }
+                      }, 200);
+                    }
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && !e.shiftKey) {
+                      e.preventDefault();
+                      if (!pending && currentQ && currentQ.ui === 'text' && input.trim()) submit();
+                    }
+                  }}
+                  disabled={!currentQ || currentQ.ui !== 'text' || pending}
+                  className={[
+                    'h-12 w-full rounded-full pr-12 pl-4',
+                    'border border-foreground/10',
+                    'focus-visible:ring-0 focus-visible:ring-primary focus-visible:border-foreground/10',
+                    'placeholder:text-muted-foreground/60',
+                    'text-base',
+                    'touch-manipulation',
+                    'will-change-auto',
+                  ].join(' ')}
+                />
 
-                  <button
-                    type="submit"
-                    disabled={!currentQ || currentQ.ui !== 'text' || !input.trim() || pending}
-                    className={[
-                      'absolute right-1.5 top-1/2 -translate-y-1/2',
-                      'inline-flex h-9 w-9 items-center justify-center rounded-full',
-                      (!currentQ || currentQ.ui !== 'text' || !input.trim() || pending)
-                        ? 'bg-foreground/10 text-muted-foreground cursor-not-allowed'
-                        : 'bg-primary text-primary-foreground hover:bg-primary/90 shadow-sm',
-                      'transition-colors',
-                    ].join(' ')}
-                    aria-label="Send"
-                  >
-                    <Send className="h-4 w-4" />
-                  </button>
-                </form>
-              )}
+                <button
+                  type="submit"
+                  disabled={!currentQ || currentQ.ui !== 'text' || !input.trim() || pending}
+                  className={[
+                    'absolute right-1.5 top-1/2 -translate-y-1/2',
+                    'inline-flex h-9 w-9 items-center justify-center rounded-full',
+                    (!currentQ || currentQ.ui !== 'text' || !input.trim() || pending)
+                      ? 'bg-foreground/10 text-muted-foreground cursor-not-allowed'
+                      : 'bg-primary text-primary-foreground hover:bg-primary/90 shadow-sm',
+                    'transition-colors',
+                  ].join(' ')}
+                  aria-label="Send"
+                >
+                  <Send className="h-4 w-4" />
+                </button>
+              </form>
             </div>
           </div>
         </div>

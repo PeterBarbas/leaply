@@ -74,40 +74,14 @@ function toTask(step: any, idx: number, roleTitle: string): any {
 async function ensureSimulationExists(
   title: string,
   allowCreate: boolean
-): Promise<{ slug?: string; created: boolean }> {
+): Promise<{ slug?: string; created: boolean; exists: boolean }> {
   const sims = await getExistingSims();
 
   const match = findClosestMatch(title, sims);
-  if (match) return { slug: match.slug, created: false };
+  if (match) return { slug: match.slug, created: false, exists: true };
 
-  if (!allowCreate) return { slug: undefined, created: false };
-
-  // Generate both simulation spec and role information via OpenAI
-  const [spec, roleInfo] = await Promise.all([
-    generateSimulationSpec(title),
-    generateRoleInformation(title)
-  ]);
-  
-  const baseSlug = slugify(spec.slug_suggestion || spec.title || title);
-  let slug = baseSlug || slugify(title) || "new-role";
-  let n = 1;
-  while (sims.some((s) => s.slug === slug)) slug = `${baseSlug}-${++n}`;
-
-  // 🔧 Ensure steps are rich "task" steps
-  const rawSteps = Array.isArray(spec?.steps) ? spec.steps : [];
-  const taskSteps = rawSteps.map((s: any, idx: number) => toTask(s, idx, title));
-
-  const { error } = await supabaseAdmin.from("simulations").insert({
-    slug,
-    title: spec.title || title,
-    steps: taskSteps,
-    rubric: Array.isArray(spec.rubric) ? spec.rubric : [],
-    role_info: roleInfo, // Store the generated role information
-    active: true,
-  });
-  if (error) throw new Error(`Failed to create simulation: ${error.message}`);
-
-  return { slug, created: true };
+  // Don't create simulations anymore - just return that it doesn't exist
+  return { slug: undefined, created: false, exists: false };
 }
 
 
@@ -133,15 +107,25 @@ export async function POST(req: Request) {
 
     const roleTitle = (action.role_title || "").trim() || "Project Management";
 
-    // Try to find or create a matching simulation
-    const ensured = await ensureSimulationExists(roleTitle, allowCreate);
+    // Check if simulation exists (don't create)
+    const ensured = await ensureSimulationExists(roleTitle, false);
+
+    if (!ensured.exists) {
+      // Simulation doesn't exist - return status to prompt for email
+      return NextResponse.json({
+        type: "result",
+        status: "not_found",
+        role: roleTitle,
+        message: `Great choice! We're working on a ${roleTitle} simulation. Enter your email below and we'll notify you when it's ready (usually within 24-48 hours).`,
+      });
+    }
 
     return NextResponse.json({
       type: "result",
       status: "supported",
       role: roleTitle,
-      slug: ensured.slug, // if created or found
-      created: ensured.created,
+      slug: ensured.slug,
+      created: false,
       message:
         action.rationale ||
         `You seem well aligned with ${roleTitle}. Try the simulation to see how it feels.`,

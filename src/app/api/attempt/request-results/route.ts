@@ -95,7 +95,25 @@ async function computeResults(attemptId: string) {
   return { result, simTitle: sim.title };
 }
 
-async function ensureBrevoContactInResults(email: string) {
+async function ensureBrevoTextAttribute(name: string) {
+  const apiKey = process.env.BREVO_API_KEY;
+  if (!apiKey) return;
+  try {
+    const brevo = await import("@getbrevo/brevo");
+    const anyBrevo = brevo as any;
+    const AttributesApiCtor = anyBrevo.AttributesApi;
+    if (!AttributesApiCtor) return; // SDK may not expose it; skip
+    const attributesApi = new AttributesApiCtor();
+    // Reuse ContactsApiApiKeys for setting API key when specific enum is missing
+    const apiKeys = anyBrevo.AttributesApiApiKeys || anyBrevo.ContactsApiApiKeys;
+    attributesApi.setApiKey(apiKeys.apiKey, apiKey);
+    await attributesApi.createContactAttribute("normal", name, { type: "text" });
+  } catch {
+    // ignore if exists or not supported
+  }
+}
+
+async function ensureBrevoContactInResults(email: string, roleTitle?: string) {
   const apiKey = process.env.BREVO_API_KEY;
   const listIdEnv = process.env.BREVO_RESULTS_LIST_ID; // numeric list id
   if (!apiKey || !listIdEnv) return { ok: false, reason: "missing_api_key_or_list_id" };
@@ -106,11 +124,20 @@ async function ensureBrevoContactInResults(email: string) {
   const contacts = new brevo.ContactsApi();
   contacts.setApiKey(brevo.ContactsApiApiKeys.apiKey, apiKey);
 
+  // Ensure attribute exists so Brevo shows the column
+  if (roleTitle) {
+    await ensureBrevoTextAttribute("ROLE");
+  }
+
   try {
     const payload = {
       email,
       listIds: [listId],
       updateEnabled: true,
+      attributes: roleTitle ? { 
+        ROLE: roleTitle,
+        JOB_TITLE: roleTitle,
+      } : undefined,
     } as any;
     await contacts.createContact(payload);
     return { ok: true, listId };
@@ -184,7 +211,7 @@ export async function POST(req: Request) {
 
       // ✅ Ensure guest is saved in Brevo list "Results" in folder "Leaply"
       try {
-        await ensureBrevoContactInResults(email);
+        await ensureBrevoContactInResults(email, simTitle);
       } catch (e) {
         console.error("Brevo save contact failed:", e);
       }

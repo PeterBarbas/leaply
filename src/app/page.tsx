@@ -7,8 +7,9 @@ import { Button } from '@/components/ui/button';
 import { motion } from 'framer-motion';
 
 const FIRST_Q = 'Which best describes you right now?';
-const OPTIONS: { label: string; pref: 'student' | 'midcareer' | 'other' }[] = [
+const OPTIONS: { label: string; pref: 'student' | 'bachelor' | 'midcareer' | 'other' }[] = [
   { label: 'I’m in secondary school deciding what to study', pref: 'student' },
+  { label: 'I\'m a bachelor\'s student exploring career options', pref: 'bachelor' },
   { label: 'I’m mid-career and exploring a change', pref: 'midcareer' },
   { label: 'Other', pref: 'other' },
 ];
@@ -16,7 +17,7 @@ const OPTIONS: { label: string; pref: 'student' | 'midcareer' | 'other' }[] = [
 export default function Home() {
   const router = useRouter();
 
-  function handleChoose(pref: 'student' | 'midcareer' | 'other') {
+  function handleChoose(pref: 'student' | 'bachelor' | 'midcareer' | 'other') {
     router.push(`/discover?pref=${pref}`);
   }
 
