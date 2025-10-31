@@ -95,6 +95,31 @@ async function computeResults(attemptId: string) {
   return { result, simTitle: sim.title };
 }
 
+async function ensureBrevoContactInResults(email: string) {
+  const apiKey = process.env.BREVO_API_KEY;
+  const listIdEnv = process.env.BREVO_RESULTS_LIST_ID; // numeric list id
+  if (!apiKey || !listIdEnv) return { ok: false, reason: "missing_api_key_or_list_id" };
+  const listId = Number(listIdEnv);
+  if (!Number.isFinite(listId)) return { ok: false, reason: "invalid_list_id" };
+
+  const brevo = await import("@getbrevo/brevo");
+  const contacts = new brevo.ContactsApi();
+  contacts.setApiKey(brevo.ContactsApiApiKeys.apiKey, apiKey);
+
+  try {
+    const payload = {
+      email,
+      listIds: [listId],
+      updateEnabled: true,
+    } as any;
+    await contacts.createContact(payload);
+    return { ok: true, listId };
+  } catch (e) {
+    console.error("Brevo: createContact failed", e);
+    return { ok: false, reason: "contact_upsert_failed" };
+  }
+}
+
 async function maybeSendEmail(to: string, simTitle: string, result: any) {
   const apiKey = process.env.BREVO_API_KEY;
   const fromEmail = process.env.BREVO_FROM_EMAIL;
@@ -155,7 +180,13 @@ export async function POST(req: Request) {
           .upsert({ email });
       } catch (userError) {
         console.error("Failed to store user:", userError);
-        // Continue anyway - don't fail the whole request
+      }
+
+      // ✅ Ensure guest is saved in Brevo list "Results" in folder "Leaply"
+      try {
+        await ensureBrevoContactInResults(email);
+      } catch (e) {
+        console.error("Brevo save contact failed:", e);
       }
     }
 

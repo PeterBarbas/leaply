@@ -12,6 +12,31 @@ const ExperimentEventSchema = z.object({
   referrer: z.string().optional(),
 });
 
+async function ensureBrevoContactInWaitlist(email: string) {
+  const apiKey = process.env.BREVO_API_KEY;
+  const listIdEnv = process.env.BREVO_WAITLIST_LIST_ID; // numeric list id for "Waitlist"
+  if (!apiKey || !listIdEnv) return { ok: false, reason: "missing_api_key_or_list_id" };
+  const listId = Number(listIdEnv);
+  if (!Number.isFinite(listId)) return { ok: false, reason: "invalid_list_id" };
+
+  const brevo = await import("@getbrevo/brevo");
+  const contacts = new brevo.ContactsApi();
+  contacts.setApiKey(brevo.ContactsApiApiKeys.apiKey, apiKey);
+
+  try {
+    const payload = {
+      email,
+      listIds: [listId],
+      updateEnabled: true,
+    } as any;
+    await contacts.createContact(payload);
+    return { ok: true, listId };
+  } catch (e) {
+    console.error("Brevo Waitlist createContact failed", e);
+    return { ok: false, reason: "contact_upsert_failed" };
+  }
+}
+
 export async function POST(req: Request) {
   try {
     const body = await req.json();
@@ -34,6 +59,15 @@ export async function POST(req: Request) {
     if (error) {
       console.error('Error inserting experiment tracking data:', error);
       return NextResponse.json({ error: 'Failed to track event' }, { status: 500 });
+    }
+
+    // If email was submitted, upsert into Brevo Waitlist
+    if (validatedData.eventType === 'email_submit' && validatedData.email) {
+      try {
+        await ensureBrevoContactInWaitlist(validatedData.email);
+      } catch (e) {
+        console.error('Brevo waitlist upsert failed:', e);
+      }
     }
 
     return NextResponse.json({ success: true, data });
