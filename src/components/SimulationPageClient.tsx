@@ -21,6 +21,7 @@ import FullscreenVideoPlayer from "@/components/ui/FullscreenVideoPlayer";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useAuth } from "@/lib/auth";
 
 type Sim = {
@@ -110,6 +111,7 @@ export default function SimulationPageClient({
   };
 
   const [email, setEmail] = useState("");
+  const [isCompleteModalOpen, setIsCompleteModalOpen] = useState(false);
   const [emailLoading, setEmailLoading] = useState(false);
   const [emailSent, setEmailSent] = useState(false);
   const [emailError, setEmailError] = useState<string | null>(null);
@@ -120,6 +122,11 @@ export default function SimulationPageClient({
   const [videoPayload, setVideoPayload] = useState<{ url: string; title?: string; description?: string } | null>(null);
 
   const allTasksCompleted = localCompletedTasks.length === tasks.length;
+
+  // Open completion modal when all tasks are completed
+  useEffect(() => {
+    if (allTasksCompleted) setIsCompleteModalOpen(true);
+  }, [allTasksCompleted]);
 
   // Auto-send results to logged-in users when all tasks are completed
   useEffect(() => {
@@ -939,89 +946,81 @@ export default function SimulationPageClient({
               })}
             </div>
 
-            {/* Completion Celebration */}
-            {allTasksCompleted && (
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.8, duration: 0.5 }}
-                className="mb-12"
-              >
-                <div className="max-w-2xl mx-auto rounded-2xl border-2 border-green-300 dark:border-green-700 bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-950/20 dark:to-emerald-950/20 p-8 shadow-lg">
-                  <div className="flex flex-col md:flex-row items-center gap-6">
-                    {/* Content */}
-                    <div className="flex-1 flex flex-col items-center text-center md:text-left">
-                      <h2 className="text-2xl font-bold text-green-800 dark:text-green-200 mb-1">
-                        All Tasks Complete!
-                      </h2>
+            {/* Completion Modal (formatted like Experiment "Get Early Access") */}
+            <Dialog open={isCompleteModalOpen} onOpenChange={setIsCompleteModalOpen}>
+              <DialogContent className="sm:max-w-md">
+                <DialogHeader>
+                  <DialogTitle className="text-center text-xl font-semibold">
+                    All Tasks Complete!
+                  </DialogTitle>
+                </DialogHeader>
 
-                      {user ? (
-                        <>
-                          <p className="text-green-700 dark:text-green-300 mb-4">
-                            Great job! Your results are being sent to your email automatically.
-                          </p>
-
-                          {emailLoading ? (
-                            <div className="flex items-center gap-2 text-green-700 dark:text-green-300">
-                              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-green-600" />
-                              <span className="font-medium">
-                                Sending results to {user.email}...
-                              </span>
-                            </div>
-                          ) : emailSent ? (
-                            <div className="flex items-center gap-2 text-green-700 dark:text-green-300">
-                              <Mail className="h-5 w-5" />
-                              <span className="font-medium">
-                                🚀 Results sent to {user.email}!
-                              </span>
-                            </div>
-                          ) : null}
-
-                          {emailError && (
-                            <p className="text-red-600 text-sm mt-2">{emailError}</p>
-                          )}
-                        </>
-                      ) : (
-                        <>
-                          <p className="text-green-700 dark:text-green-300 mb-4">
-                            Great job! Enter your email to receive your detailed results.
-                          </p>
-
-                          {!emailSent ? (
-                            <div className="flex flex-col sm:flex-row gap-2 w-full">
-                              <Input
-                                type="email"
-                                placeholder="your@email.com"
-                                value={email}
-                                onChange={(e) => setEmail(e.target.value)}
-                                className="flex-1 py-2 focus-visible:ring-0 focus-visible:ring-primary focus-visible:border-foreground/10"
-                              />
-                              <Button
-                                onClick={handleEmailSubmit}
-                                disabled={emailLoading || !email.trim()}
-                                className="bg-green-600 hover:bg-green-700 w-full sm:w-auto"
-                              >
-                                {emailLoading ? "Sending..." : "Send Results"}
-                              </Button>
-                            </div>
-                          ) : (
-                            <div className="flex items-center gap-2 text-green-700 dark:text-green-300">
-                              <span className="font-medium">
-                                🚀 Results sent to {email}!
-                              </span>
-                            </div>
-                          )}
-
-                          {emailError && (
-                            <p className="text-red-600 text-sm mt-2">{emailError}</p>
-                          )}
-                        </>
-                      )}
-                    </div>
+                {user ? (
+                  <div className="py-4 text-center">
+                    <p className="text-green-700 dark:text-green-300 mb-4">
+                      Great job! Your results are being sent to your email automatically.
+                    </p>
+                    {emailLoading ? (
+                      <div className="flex items-center justify-center gap-2 text-green-700 dark:text-green-300">
+                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-green-600" />
+                        <span className="font-medium">Sending results to {user.email}...</span>
+                      </div>
+                    ) : emailSent ? (
+                      <div className="flex items-center justify-center gap-2 text-green-700 dark:text-green-300">
+                        <span className="font-medium">🚀 Results sent to {user.email}!</span>
+                      </div>
+                    ) : null}
+                    {emailError && (
+                      <p className="text-red-600 text-sm mt-2">{emailError}</p>
+                    )}
                   </div>
-                </div>
-              </motion.div>
-            )}
+                ) : (
+                  <form
+                    onSubmit={(e) => {
+                      e.preventDefault();
+                      if (!email.trim() || emailLoading) return;
+                      handleEmailSubmit();
+                    }}
+                    className="space-y-4"
+                  >
+                    <div>
+                      <label htmlFor="results-email" className="block text-sm font-medium text-foreground mb-2">
+                        Email Address
+                      </label>
+                      <Input
+                        id="results-email"
+                        type="email"
+                        value={email}
+                        onChange={(e) => setEmail(e.target.value)}
+                        placeholder="Enter your email address"
+                        required
+                        className="w-full"
+                      />
+                    </div>
+                    <div className="flex gap-3">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={() => setIsCompleteModalOpen(false)}
+                        className="flex-1"
+                      >
+                        Close
+                      </Button>
+                      <Button
+                        type="submit"
+                        disabled={emailLoading || !email.trim()}
+                        className="flex-1 bg-primary hover:bg-primary/90"
+                      >
+                        {emailLoading ? "Sending..." : "Send Results"}
+                      </Button>
+                    </div>
+                    {emailError && (
+                      <p className="text-red-600 text-sm mt-1 text-center">{emailError}</p>
+                    )}
+                  </form>
+                )}
+              </DialogContent>
+            </Dialog>
           </div>
         ) : (
           /* Guide Tab Content - Role Information */
