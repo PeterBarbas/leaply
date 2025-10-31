@@ -96,16 +96,18 @@ async function computeResults(attemptId: string) {
 }
 
 async function maybeSendEmail(to: string, simTitle: string, result: any) {
-  const apiKey = process.env.RESEND_API_KEY;
-  const from = process.env.RESEND_FROM; // e.g., Leaply <onboarding@resend.dev>
-  if (!apiKey || !from) return { sent: false, reason: "missing_config" };
+  const apiKey = process.env.BREVO_API_KEY;
+  const fromEmail = process.env.BREVO_FROM_EMAIL;
+  const fromName = process.env.BREVO_FROM_NAME || "Leaply";
+  if (!apiKey || !fromEmail) return { sent: false, reason: "missing_config" };
 
-  // Lazy import; we send raw HTML (no @react-email/render needed)
-  const { Resend } = await import("resend");
-  const resend = new Resend(apiKey);
+  // Lazy import Brevo SDK
+  const brevo = await import("@getbrevo/brevo");
+  const client = new brevo.TransactionalEmailsApi();
+  client.setApiKey(brevo.TransactionalEmailsApiApiKeys.apiKey, apiKey);
 
   const subject = `Your ${simTitle} results`;
-  const html = `
+  const htmlContent = `
     <div style="font-family: ui-sans-serif, system-ui; line-height:1.5">
       <h2 style="margin:0 0 8px 0">Your results for <strong>${simTitle}</strong></h2>
       <p style="margin:0 0 16px 0">Thanks for trying a Leaply simulation. Here’s how you did:</p>
@@ -118,18 +120,19 @@ async function maybeSendEmail(to: string, simTitle: string, result: any) {
     </div>
   `;
 
-  const { data, error } = await resend.emails.send({
-    from,
-    to,
-    subject,
-    html,
-  });
+  const sendSmtpEmail = new brevo.SendSmtpEmail();
+  sendSmtpEmail.sender = { email: fromEmail, name: fromName };
+  sendSmtpEmail.to = [{ email: to }];
+  sendSmtpEmail.subject = subject;
+  sendSmtpEmail.htmlContent = htmlContent;
 
-  if (error) {
-    console.error("Resend error:", error);
-    return { sent: false, reason: "resend_error", error: String(error) };
+  try {
+    const data = await client.sendTransacEmail(sendSmtpEmail);
+    return { sent: true, id: data?.messageId || data?.messageIds?.[0] };
+  } catch (error: any) {
+    console.error("Brevo error:", error?.response?.body || error?.message || error);
+    return { sent: false, reason: "brevo_error", error: String(error?.message || error) };
   }
-  return { sent: true, id: data?.id };
 }
 
 export async function POST(req: Request) {

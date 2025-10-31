@@ -252,76 +252,76 @@ export default function TaskPageClient({
     const accuracy = isCorrect ? 100 : 50;
 
     setCompletionResult({ isCorrect, timeSpent, xpEarned, accuracy });
-    if (userId) {
-      playCompletionSound();
-      setShowCompletionScreen(true);
-    } else {
-      await handleCompletionClose();
-    }
+    // Show completion screen for all users (both logged in and guests)
+    playCompletionSound();
+    setShowCompletionScreen(true);
   };
 
   const handleCompletionClose = async () => {
     setIsNavigating(true);
     setLoading(prev => ({ ...prev, finish: true }));
     
-    try {
-      // Save progress to database if user is logged in
-      const response = await fetch('/api/attempt/progress', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          attemptId,
-          taskIndex,
-        }),
-      });
+    // Only try to save to database and claim XP if user is logged in
+    if (userId) {
+      try {
+        // Save progress to database
+        const response = await fetch('/api/attempt/progress', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            attemptId,
+            taskIndex,
+          }),
+        });
 
-      if (!response.ok) {
-        const errorData = await response.json();
-        // If user is not authenticated or attempt not found (test attempts), continue with sessionStorage fallback
-        if (response.status === 401 || response.status === 404) {
-          console.log('User not authenticated or attempt not found, using sessionStorage fallback');
-        } else {
-          throw new Error(errorData.error || 'Failed to save progress');
-        }
-      }
-
-      // Claim XP if user is authenticated and task was completed
-      if (attemptId !== 'test' && questionResult) {
-        try {
-          const taskLevel = task.stage || 1; // Default to level 1 if no stage specified
-          const xpResponse = await fetch('/api/user/claim-xp', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-              attemptId,
-              taskIndex,
-              isCorrect: questionResult.isCorrect,
-              taskLevel,
-            }),
-          });
-
-          if (xpResponse.ok) {
-            const xpData = await xpResponse.json();
-            console.log('XP claimed successfully:', xpData);
-            // You could show a notification here about XP gained
+        if (!response.ok) {
+          const errorData = await response.json();
+          // If attempt not found, continue with sessionStorage fallback
+          if (response.status === 404) {
+            console.log('Attempt not found, using sessionStorage fallback');
           } else {
-            console.error('Failed to claim XP:', await xpResponse.text());
+            throw new Error(errorData.error || 'Failed to save progress');
           }
-        } catch (xpError) {
-          console.error('Error claiming XP:', xpError);
-          // Don't fail the whole process if XP claiming fails
         }
+
+        // Claim XP if user is authenticated and task was completed
+        if (questionResult && attemptId !== 'test') {
+          try {
+            const taskLevel = task.stage || 1;
+            const xpResponse = await fetch('/api/user/claim-xp', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({
+                attemptId,
+                taskIndex,
+                isCorrect: questionResult.isCorrect,
+                taskLevel,
+              }),
+            });
+
+            if (xpResponse.ok) {
+              const xpData = await xpResponse.json();
+              console.log('XP claimed successfully:', xpData);
+            } else {
+              console.error('Failed to claim XP:', await xpResponse.text());
+            }
+          } catch (xpError) {
+            console.error('Error claiming XP:', xpError);
+            // Don't fail the whole process if XP claiming fails
+          }
+        }
+      } catch (error) {
+        console.error('Failed to save progress to database:', error);
+        // Continue with sessionStorage fallback even for logged-in users
       }
-    } catch (error) {
-      console.error('Failed to save progress to database:', error);
-      // Continue with sessionStorage fallback
     }
     
-    // Mark task as completed in sessionStorage (fallback for non-authenticated users)
+    // Always save to sessionStorage (for both logged-in and guest users)
+    // This ensures progress persists even if database operations fail
     const sessionKey = `simulation_progress_${sim.slug}`;
     const savedProgress = sessionStorage.getItem(sessionKey);
     
@@ -343,17 +343,18 @@ export default function TaskPageClient({
       // Do not mark video tasks as completed
       if (task.expected_input?.type !== "video" && !progressData.completedTasks.includes(taskIndex)) {
         progressData.completedTasks.push(taskIndex);
-        progressData.timestamp = Date.now(); // Update timestamp
+        progressData.timestamp = Date.now();
         sessionStorage.setItem(sessionKey, JSON.stringify(progressData));
         console.log('Task completed and saved to sessionStorage:', taskIndex);
       }
     } catch (error) {
-      console.error('Failed to update progress:', error);
+      console.error('Failed to update progress in sessionStorage:', error);
     }
     
     setLoading(prev => ({ ...prev, finish: false }));
+    setIsNavigating(false);
     
-    // Navigate back to main simulation page
+    // Always navigate back to main simulation page
     router.push(`/s/${sim.slug}?attemptId=${attemptId}`);
   };
 

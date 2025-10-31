@@ -81,20 +81,45 @@ export default function SimulationPageClient({
   const tasks = (sim.steps || []) as TaskStep[];
   const roleInfo = sim.role_info;
 
+  // Session storage key for this simulation
+  const sessionKey = `simulation_progress_${sim.slug}`;
+
+  // Track hydration to avoid client/server HTML mismatches
+  const [hydrated, setHydrated] = useState(false);
+  useEffect(() => {
+    setHydrated(true);
+  }, []);
+
+  // Initialize localCompletedTasks from sessionStorage first for guests to unlock immediately
+  const initializeCompletedTasks = (): number[] => {
+    try {
+      if (typeof window !== 'undefined') {
+        const saved = sessionStorage.getItem(sessionKey);
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          if (Array.isArray(parsed.completedTasks)) {
+            const nums = (parsed.completedTasks as any[])
+              .map((v) => Number(v))
+              .filter((n) => Number.isFinite(n));
+            if (nums.length) return nums;
+          }
+        }
+      }
+    } catch {}
+    return Array.isArray(completedTasks) ? completedTasks : [];
+  };
+
   const [email, setEmail] = useState("");
   const [emailLoading, setEmailLoading] = useState(false);
   const [emailSent, setEmailSent] = useState(false);
   const [emailError, setEmailError] = useState<string | null>(null);
   const [localCompletedTasks, setLocalCompletedTasks] =
-    useState<number[]>(completedTasks);
+    useState<number[]>(initializeCompletedTasks);
   const [activeTab, setActiveTab] = useState<"tasks" | "guide">("tasks");
   const [showVideoPlayer, setShowVideoPlayer] = useState(false);
   const [videoPayload, setVideoPayload] = useState<{ url: string; title?: string; description?: string } | null>(null);
 
   const allTasksCompleted = localCompletedTasks.length === tasks.length;
-
-  // Session storage key for this simulation
-  const sessionKey = `simulation_progress_${sim.slug}`;
 
   // Auto-send results to logged-in users when all tasks are completed
   useEffect(() => {
@@ -146,13 +171,24 @@ export default function SimulationPageClient({
       const saved = sessionStorage.getItem(sessionKey);
       if (saved) {
         const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed.completedTasks)) sessionList = parsed.completedTasks as number[];
+        if (Array.isArray(parsed.completedTasks)) {
+          sessionList = (parsed.completedTasks as any[])
+            .map((v) => Number(v))
+            .filter((n) => Number.isFinite(n));
+          console.log('Loaded from sessionStorage:', sessionList);
+        }
       }
-    } catch {}
+    } catch (error) {
+      console.error('Failed to read sessionStorage in merge effect:', error);
+    }
 
     const serverList = Array.isArray(completedTasks) ? completedTasks : [];
-    const merged = Array.from(new Set([...(sessionList || []), ...(serverList || [])])).sort((a, b) => a - b);
+    // For guests, prioritize sessionStorage. For logged-in users, merge both
+    const merged = userId 
+      ? Array.from(new Set([...(sessionList || []), ...(serverList || [])])).sort((a, b) => a - b)
+      : sessionList.length > 0 ? sessionList : serverList;
 
+    console.log('Merged completed tasks:', merged, '(session:', sessionList, ', server:', serverList, ')');
     setLocalCompletedTasks(merged);
 
     // Persist merged back to session for guests
@@ -165,8 +201,10 @@ export default function SimulationPageClient({
         totalTasks: tasks.length,
       };
       sessionStorage.setItem(sessionKey, JSON.stringify(payload));
-    } catch {}
-  }, [attemptId, completedTasks, sessionKey, sim.slug, tasks.length]);
+    } catch (error) {
+      console.error('Failed to save merged progress to sessionStorage:', error);
+    }
+  }, [attemptId, completedTasks, sessionKey, sim.slug, tasks.length, userId]);
 
   // Also re-sync guest progress from sessionStorage when page regains focus or storage changes
   useEffect(() => {
@@ -176,7 +214,8 @@ export default function SimulationPageClient({
         if (!saved) return;
         const progress = JSON.parse(saved);
         if (Array.isArray(progress.completedTasks)) {
-          setLocalCompletedTasks(progress.completedTasks);
+          const nums = (progress.completedTasks as any[]).map((v: any) => Number(v)).filter((n: number) => Number.isFinite(n));
+          setLocalCompletedTasks(nums);
         }
       } catch {}
     };
@@ -275,7 +314,15 @@ export default function SimulationPageClient({
       return "available";
     }
 
-    if (localCompletedTasks.includes(index)) return "completed";
+    const completedForView = hydrated
+      ? localCompletedTasks
+      : (Array.isArray(completedTasks) ? completedTasks : []);
+
+    // Check if this task is completed
+    const isCompleted = completedForView.includes(index);
+    if (isCompleted) {
+      return "completed";
+    }
 
     // First task is always available (or next after a video)
     if (index === 0) return "available";
@@ -285,7 +332,10 @@ export default function SimulationPageClient({
     if (prev?.expected_input?.type === "video") return "available";
 
     // Task is available only if previous non-video task is completed
-    if (localCompletedTasks.includes(index - 1)) return "available";
+    const prevCompleted = completedForView.includes(index - 1);
+    if (prevCompleted) {
+      return "available";
+    }
 
     // Otherwise it's locked
     return "locked";
@@ -600,19 +650,11 @@ export default function SimulationPageClient({
                                 onClick={() => handleStartTask(index)}
                               >
                                 {/* Outer Glow Ring for Completed */}
-                                {isCompleted && (
-                                  <motion.div
-                                    className="absolute -inset-2 rounded-full bg-green-400/20 blur-lg"
-                                    animate={{
-                                      scale: [1, 1.15, 1],
-                                    }}
-                                    transition={{
-                                      duration: 2,
-                                      repeat: Infinity,
-                                      ease: "easeInOut",
-                                    }}
-                                  />
-                                )}
+                                <motion.div
+                                  className={`absolute -inset-2 rounded-full bg-green-400/20 blur-lg ${isCompleted ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}
+                                  animate={isCompleted ? { scale: [1, 1.15, 1] } : undefined}
+                                  transition={isCompleted ? { duration: 2, repeat: Infinity, ease: "easeInOut" } : undefined}
+                                />
 
                                 {/* Main Task Circle */}
                                 <div
@@ -786,19 +828,11 @@ export default function SimulationPageClient({
                                 onClick={() => handleStartTask(index)}
                               >
                                 {/* Outer Glow Ring for Completed */}
-                                {isCompleted && (
-                                  <motion.div
-                                    className="absolute -inset-2 rounded-full bg-green-400/20 blur-lg"
-                                    animate={{
-                                      scale: [1, 1.15, 1],
-                                    }}
-                                    transition={{
-                                      duration: 2,
-                                      repeat: Infinity,
-                                      ease: "easeInOut",
-                                    }}
-                                  />
-                                )}
+                                <motion.div
+                                  className={`absolute -inset-2 rounded-full bg-green-400/20 blur-lg ${isCompleted ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}
+                                  animate={isCompleted ? { scale: [1, 1.15, 1] } : undefined}
+                                  transition={isCompleted ? { duration: 2, repeat: Infinity, ease: "easeInOut" } : undefined}
+                                />
 
                                 {/* Main Task Circle - Smaller on mobile */}
                                 <div
@@ -1117,7 +1151,7 @@ export default function SimulationPageClient({
                       </CardTitle>
                     </CardHeader>
                     <CardContent>
-                      <p className="text-2xl font-semibold text-emerald-600">
+                      <p className="text-2xl font-semibold text-emerald-600 whitespace-pre-line">
                         {roleInfo.salaryRange}
                       </p>
                     </CardContent>

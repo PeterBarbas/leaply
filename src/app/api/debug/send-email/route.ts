@@ -5,28 +5,30 @@ export async function POST(req: Request) {
     const { to } = await req.json();
     if (!to) return NextResponse.json({ error: "Missing 'to'" }, { status: 400 });
 
-    const apiKey = process.env.RESEND_API_KEY;
-    const from = process.env.RESEND_FROM;
-    if (!apiKey || !from) {
-      return NextResponse.json({ error: "Missing RESEND_API_KEY or RESEND_FROM" }, { status: 500 });
+    const apiKey = process.env.BREVO_API_KEY;
+    const fromEmail = process.env.BREVO_FROM_EMAIL;
+    const fromName = process.env.BREVO_FROM_NAME || "Leaply";
+    if (!apiKey || !fromEmail) {
+      return NextResponse.json({ error: "Missing BREVO_API_KEY or BREVO_FROM_EMAIL" }, { status: 500 });
     }
 
-    const { Resend } = await import("resend");
-    const resend = new Resend(apiKey);
+    const brevo = await import("@getbrevo/brevo");
+    const client = new brevo.TransactionalEmailsApi();
+    client.setApiKey(brevo.TransactionalEmailsApiApiKeys.apiKey, apiKey);
 
-    const { data, error } = await resend.emails.send({
-      from,
-      to,
-      subject: "Leaply test email",
-      html: "<strong>Hello from Leaply!</strong> If you see this, Resend is working.",
-    });
+    const sendSmtpEmail = new brevo.SendSmtpEmail();
+    sendSmtpEmail.sender = { email: fromEmail, name: fromName };
+    sendSmtpEmail.to = [{ email: to }];
+    sendSmtpEmail.subject = "Leaply test email";
+    sendSmtpEmail.htmlContent = "<strong>Hello from Leaply!</strong> If you see this, Brevo is working.";
 
-    if (error) {
-      console.error("Resend test error:", error);
-      return NextResponse.json({ ok: false, error: String(error) }, { status: 500 });
+    try {
+      const data = await client.sendTransacEmail(sendSmtpEmail);
+      return NextResponse.json({ ok: true, id: data?.messageId || data?.messageIds?.[0] });
+    } catch (error: any) {
+      console.error("Brevo test error:", error?.response?.body || error);
+      return NextResponse.json({ ok: false, error: String(error?.message || error) }, { status: 500 });
     }
-
-    return NextResponse.json({ ok: true, id: data?.id });
   } catch (e: any) {
     return NextResponse.json({ error: e.message || "Internal error" }, { status: 500 });
   }
