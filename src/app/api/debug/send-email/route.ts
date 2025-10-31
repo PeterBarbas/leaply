@@ -24,7 +24,9 @@ export async function POST(req: Request) {
 
     try {
       const data = await client.sendTransacEmail(sendSmtpEmail);
-      return NextResponse.json({ ok: true, id: data?.messageId || data?.messageIds?.[0] });
+      // Brevo returns messageId in the body
+      const messageId = data?.body?.messageId || (data?.body as any)?.messageIds?.[0];
+      return NextResponse.json({ ok: true, id: messageId });
     } catch (error: any) {
       console.error("Brevo test error:", error?.response?.body || error);
       return NextResponse.json({ ok: false, error: String(error?.message || error) }, { status: 500 });

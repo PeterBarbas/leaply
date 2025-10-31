@@ -128,7 +128,9 @@ async function maybeSendEmail(to: string, simTitle: string, result: any) {
 
   try {
     const data = await client.sendTransacEmail(sendSmtpEmail);
-    return { sent: true, id: data?.messageId || data?.messageIds?.[0] };
+    // Brevo returns messageId in the body
+    const messageId = data?.body?.messageId || (data?.body as any)?.messageIds?.[0];
+    return { sent: true, id: messageId };
   } catch (error: any) {
     console.error("Brevo error:", error?.response?.body || error?.message || error);
     return { sent: false, reason: "brevo_error", error: String(error?.message || error) };
